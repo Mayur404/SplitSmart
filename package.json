@@ -1,0 +1,10 @@
+{
+  "name": "splitsmart-splitting-algorithms",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Standalone JavaScript extraction of SplitSmart item, bill, and payment splitting algorithms.",
+  "scripts": {
+    "test": "node --test"
+  }
+}

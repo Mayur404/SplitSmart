@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f7f8f5" />
+    <meta name="description" content="SplitSmart — Smart group bill-splitting with accurate tax allocation, item assignment, and UPI settlement." />
+    <title>SplitSmart — Smart Group Expense &amp; Receipt Settlement</title>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script>
+      window.addEventListener('DOMContentLoaded', () => {
+        if (!window.LZString) {
+          const script = document.createElement('script');
+          script.src = 'https://cdn.jsdelivr.net/npm/lz-string@1.4.4/libs/lz-string.min.js';
+          document.head.appendChild(script);
+        }
+        if (!window.QRCode) {
+          const script = document.createElement('script');
+          script.src = 'https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js';
+          document.head.appendChild(script);
+        }
+      });
+    </script>
+  </head>
+  <body data-ui="basic">
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

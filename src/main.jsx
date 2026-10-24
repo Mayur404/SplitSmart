@@ -4,10 +4,6 @@ import App from './App.jsx';
 import './styles/main.css';
 
 const rootElement = document.getElementById('root');
-if (!rootElement) throw new Error('Missing #root application element.');
+if (!rootElement) throw new Error('Missing #root mount element.');
 
-createRoot(rootElement).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
+createRoot(rootElement).render(<App />);

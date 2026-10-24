@@ -1,6 +1,6 @@
 /**
- * SplitSmart — app.js
- * Application Entry Point, Navigation, View Routing, Event Handling, and Orchestration.
+ * SplitSmart legacy feature controller.
+ * DOM-driven bill workflows retained behind the React shell during migration.
  */
 
 import {
@@ -16,7 +16,7 @@ import {
   exportBackup,
   importBackup,
   isStorageAvailable
-} from './modules/state.js';
+} from '../modules/state.js';
 
 import {
   toPaise,
@@ -28,14 +28,14 @@ import {
   netBalances,
   minimumCashFlow,
   runSelfTests
-} from './algorithms/algorithm.js';
+} from '../algorithms/algorithm.js';
 
 import {
   paymentUri,
   renderQR,
   splitPayment,
   isValidUpiId
-} from './modules/qr.js';
+} from '../modules/qr.js';
 
 import {
   makeSharePayload,
@@ -44,13 +44,12 @@ import {
   claimMessage,
   parseClaim,
   whatsappUrl
-} from './modules/share.js';
+} from '../modules/share.js';
 
 import {
   scanReceipt,
-  listAvailableModels,
-  CANDIDATE_MODELS
-} from './modules/vision.js';
+  listAvailableModels
+} from '../modules/vision.js';
 
 // DOM Selectors and Utilities
 const $ = sel => document.querySelector(sel);
@@ -74,12 +73,6 @@ let previousUnrolls = []; // Stack for undo unroll
 let importedClaims = [];
 let pendingAmbiguityAction = null;
 let recognitionInstance = null;
-
-// Apply Theme
-function applyTheme() {
-  document.documentElement.setAttribute('data-theme', 'light');
-}
-applyTheme();
 
 // Toast Notification
 function toast(message, isError = false) {
@@ -1498,6 +1491,7 @@ document.addEventListener('click', async e => {
   const action = actionBtn.dataset.action;
 
   switch (action) {
+
     case 'new-bill': {
       initOuting(activeGroup);
       break;
@@ -1956,6 +1950,7 @@ document.addEventListener('click', async e => {
       }
       break;
     }
+
     case 'clear-api-key': {
       settings.apiKey = '';
       settings.saveKey = false;

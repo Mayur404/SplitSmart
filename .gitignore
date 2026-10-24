@@ -1,5 +1,8 @@
 node_modules/
 dist/*
-!dist/.gitkeep
+!dist/README.md
+coverage/
 .env
+.env.*
+!.env.example
 .DS_Store

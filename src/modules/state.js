@@ -193,12 +193,11 @@ export function saveRosters(rosters) {
 }
 
 /**
- * User Settings (theme, API key, saveKey toggle, selected model, warning threshold).
+ * User settings (API key, persistence preference, model, and UPI warning threshold).
  */
 export function getSettings() {
   const s = read('settings', {});
   return {
-    theme: s?.theme === 'dark' ? 'dark' : 'light',
     apiKey: typeof s?.apiKey === 'string' ? s.apiKey : '',
     saveKey: !!s?.saveKey,
     selectedModel: typeof s?.selectedModel === 'string' && s.selectedModel ? s.selectedModel : 'auto',
@@ -208,7 +207,6 @@ export function getSettings() {
 
 export function saveSettings(settings) {
   const clean = {
-    theme: settings.theme === 'dark' ? 'dark' : 'light',
     apiKey: settings.saveKey && typeof settings.apiKey === 'string' ? settings.apiKey : '',
     saveKey: !!settings.saveKey,
     selectedModel: typeof settings.selectedModel === 'string' && settings.selectedModel ? settings.selectedModel : 'auto',
@@ -242,7 +240,6 @@ export function exportBackup() {
     exportDate: new Date().toISOString(),
     rosters: getRosters(),
     settings: {
-      theme: getSettings().theme,
       upiThresholdPaise: getSettings().upiThresholdPaise
     }
   };

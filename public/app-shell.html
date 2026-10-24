@@ -1,0 +1,369 @@
+
+  <div class="app-shell">
+    <!-- Collapsible Sidebar Navigation -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-top">
+        <a class="brand" href="#dashboard" data-view="dashboard" aria-label="SplitSmart Home">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            </svg>
+          </span>
+          <span class="brand-text">Split<span class="brand-light">Smart</span></span>
+        </a>
+      </div>
+
+      <nav class="nav" aria-label="Main Navigation">
+        <button data-view="dashboard" class="nav-link active">
+          <span class="nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>
+          </span>
+          <span>Overview</span>
+        </button>
+
+        <button data-view="groups" class="nav-link">
+          <span class="nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-1a6 6 0 0 1 12 0v1M16 5.5a3 3 0 0 1 0 5.8M18 14a5 5 0 0 1 3 4.5V20"/></svg>
+          </span>
+          <span>Groups</span>
+        </button>
+
+        <button data-view="settings" class="nav-link">
+          <span class="nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.4 1.1-1.4 2.4-1.7-.6a8 8 0 0 1-1.5.9l-.3 1.8h-2.8l-.3-1.8a8 8 0 0 1-1.5-.9l-1.7.6-1.4-2.4L7.7 15a7 7 0 0 1 0-1.8l-1.4-1.1 1.4-2.4 1.7.6a8 8 0 0 1 1.5-.9l.3-1.8H14l.3 1.8a8 8 0 0 1 1.5.9l1.7-.6 1.4 2.4-1.4 1.1a7 7 0 0 1-.1 1.8Z"/></svg>
+          </span>
+          <span>Settings</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <div class="privacy-badge">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span>100% Client-Side Private</span>
+        </div>
+        <div class="sidebar-version">SplitSmart v1.0 · Zero Backend</div>
+      </div>
+    </aside>
+
+    <!-- Main Application Viewport -->
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button id="menu-toggle" class="icon-button mobile-menu" aria-label="Toggle navigation drawer" aria-expanded="false">
+            <span class="hamburger" aria-hidden="true"></span>
+          </button>
+          <div id="breadcrumb" class="breadcrumb" aria-live="polite">Overview</div>
+        </div>
+
+        <div class="topbar-right">
+          <button class="button button-primary button-small" data-action="new-bill" aria-label="Create a new bill">
+            <span aria-hidden="true">＋</span>
+            <span>New Bill</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Main Dynamic Content Container -->
+      <div id="app" class="content" tabindex="-1">
+        <!-- Rendered dynamically by app.js router -->
+      </div>
+    </main>
+  </div>
+
+  <!-- Toast Notification Region -->
+  <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- Accessible Dialog: Confirmation Modal -->
+  <dialog id="confirm-dialog" class="dialog">
+    <form method="dialog" id="confirm-form">
+      <h2 id="confirm-title">Are you sure?</h2>
+      <p id="confirm-copy"></p>
+      <div class="dialog-actions">
+        <button type="button" class="button button-secondary" data-action="cancel-dialog">Cancel</button>
+        <button id="confirm-ok" type="submit" class="button button-danger" value="confirm">Confirm</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Accessible Dialog: Member Profile Add/Edit -->
+  <dialog id="member-dialog" class="dialog">
+    <form id="member-form">
+      <h2 id="member-dialog-title">Add Member</h2>
+      <input type="hidden" name="id">
+      <div class="dialog-fields">
+        <label>
+          Full Name
+          <input name="name" required maxlength="60" autocomplete="off" placeholder="e.g. Aman Sharma">
+        </label>
+        <label>
+          UPI ID <span class="quiet">(Optional for payment QR)</span>
+          <input name="upiId" maxlength="120" placeholder="e.g. aman@okhdfcbank" pattern="^[\w.\-]{2,256}@[\w.-]{2,64}$|^$">
+        </label>
+        <label>
+          Dietary Preference
+          <select name="dietaryTag">
+            <option value="ANY">ANY (No dietary restriction)</option>
+            <option value="VEG">VEG (Vegetarian only)</option>
+            <option value="NON-VEG">NON-VEG (Non-Vegetarian)</option>
+          </select>
+        </label>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" class="button button-secondary" data-action="close-member">Cancel</button>
+        <button type="submit" class="button button-primary">Save Member</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Accessible Dialog: Natural Language Ambiguity Resolver -->
+  <dialog id="ambiguity-dialog" class="dialog">
+    <h2>Select Matching Option</h2>
+    <p id="ambiguity-prompt">Multiple items or members matched your command. Please choose one:</p>
+    <div id="ambiguity-choices" class="choice-list"></div>
+    <div class="dialog-actions">
+      <button type="button" class="button button-secondary" data-action="close-ambiguity">Cancel</button>
+    </div>
+  </dialog>
+
+  <!-- Accessible Dialog: Large Payment Split Modal -->
+  <dialog id="split-dialog" class="dialog">
+    <h2>Split Large UPI Transfer</h2>
+    <p id="split-dialog-copy">This settlement is above the recommended ₹2,000 threshold. Choose how many payments to split into:</p>
+    <div id="split-dialog-options" class="split-options"></div>
+    <div class="dialog-actions">
+      <button type="button" class="button button-secondary" data-action="close-split">Done</button>
+    </div>
+  </dialog>
+
+  <!-- Accessible Dialog: QR Code & Payment Details Modal -->
+  <dialog id="qr-dialog" class="dialog modal-wide">
+    <h2 id="qr-dialog-title">UPI Payment</h2>
+    <div class="qr-dialog-body">
+      <div id="modal-qr-container" class="qr-container-large"></div>
+      <div class="qr-details" id="qr-dialog-details"></div>
+    </div>
+    <div class="dialog-actions">
+      <button type="button" class="button button-secondary" data-action="close-qr">Close</button>
+      <a id="modal-upi-link" class="button button-primary" href="#">Pay in UPI App</a>
+    </div>
+  </dialog>
+
+  <!-- Accessible Dialog: Share Bill for Self-Claims Modal -->
+  <dialog id="share-dialog" class="dialog">
+    <h2>Share Bill for Claims</h2>
+    <p>Send this link to your group. Each person selects the items they consumed and sends their claim back to you on WhatsApp.</p>
+    <div class="dialog-fields">
+      <label>
+        Self-Claim Link
+        <input id="share-dialog-link" readonly style="font-family:var(--font-mono);font-size:12px;padding:10px;" onclick="this.select()">
+      </label>
+    </div>
+    <div class="dialog-actions" style="margin-top:16px;flex-wrap:wrap;gap:8px;">
+      <button type="button" class="button button-secondary" data-action="close-share-dialog">Close</button>
+      <button type="button" class="button button-secondary" id="share-dialog-copy-btn">Copy Link</button>
+      <a id="share-dialog-open-btn" class="button button-secondary" target="_blank" href="#">Open Link in New Tab</a>
+      <a id="share-dialog-wa-btn" class="button button-primary" target="_blank" href="#">Send on WhatsApp</a>
+    </div>
+  </dialog>
+
+  <!-- File Protocol Diagnostic Fallback (Guides users if index.html is opened directly as file:///) -->
+  <script>
+    if (window.location.protocol === 'file:') {
+      window.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => {
+          const app = document.getElementById('app');
+          if (app && !app.hasChildNodes()) {
+            app.innerHTML = `
+              <div class="panel file-protocol-warning">
+                <div class="warning-icon">⚡</div>
+                <h2>Static Server Required for ES6 Modules</h2>
+                <p>
+                  SplitSmart is built with clean, native ES6 JavaScript modules (<code class="code-badge">&lt;script type="module"&gt;</code>).
+                  Modern web browsers restrict modular JavaScript when opened directly as a file (<code class="code-badge">file:///</code>) due to CORS security rules.
+                </p>
+                <div class="terminal-box">
+                  <div class="terminal-step">Open a terminal in the SplitSmart project folder and run:</div>
+                  <div class="terminal-cmd">py -m http.server 8000 <span class="quiet">(Windows)</span></div>
+                  <div class="terminal-cmd">python3 -m http.server 8000 <span class="quiet">(Linux / macOS)</span></div>
+                  <div class="terminal-step" style="margin-top:12px;">Then open in your browser:</div>
+                  <div class="terminal-link"><a href="http://localhost:8000" target="_blank">http://localhost:8000</a></div>
+                </div>
+                <p class="quiet" style="font-size:13px;margin-top:14px;">
+                  No build steps, compilation, npm, or backend required. Any static file server or VS Code Live Server will work.
+                </p>
+              </div>
+            `;
+          }
+        }, 300);
+      });
+    }
+  </script>
+  <!-- Presentation-only interaction layer: scroll reveals and action feedback.
+       It never handles app actions, financial data, or claim-link routing. -->
+  <script>
+    (function () {
+      'use strict';
+      var root = document.documentElement;
+      var app = document.getElementById('app');
+      var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      var observer = null;
+      var mutationObserver = null;
+      var revealSelector = '.page-head, #app .hero, #app > .columns, #app > section.panel, #app > .panel, .section-head, .settlement, .assignment-item, .item-entry, details.breakdown-item, .breakdown-row:not(.head), .list-row, .group-card, .empty';
+
+      function advancedMode() {
+        return root.getAttribute('data-ui-version') === 'advanced';
+      }
+      var scrollFramePending = false;
+      function updateScrollProgress() {
+        if (!advancedMode()) {
+          root.style.removeProperty('--ss-scroll-progress');
+          return;
+        }
+        if (scrollFramePending) return;
+        scrollFramePending = true;
+        window.requestAnimationFrame(function () {
+          var doc = document.documentElement;
+          var scrollable = Math.max(1, doc.scrollHeight - window.innerHeight);
+          var progress = Math.max(0, Math.min(100, (window.scrollY || doc.scrollTop || 0) / scrollable * 100));
+          root.style.setProperty('--ss-scroll-progress', progress.toFixed(2) + '%');
+          scrollFramePending = false;
+        });
+      }
+      function restartClass(el, className, duration) {
+        if (!el) return;
+        el.classList.remove(className);
+        // Force a style boundary so a repeated interaction replays the cue.
+        void el.offsetWidth;
+        el.classList.add(className);
+        window.setTimeout(function () { el.classList.remove(className); }, duration || 900);
+      }
+      function setRevealState(el) {
+        if (!el || el.dataset.ssRevealBound === '1') return;
+        el.dataset.ssRevealBound = '1';
+        el.classList.add('ss-reveal');
+        if (!observer) {
+          el.classList.add('ss-revealed');
+          return;
+        }
+        observer.observe(el);
+      }
+      function prepareReveals() {
+        if (!app || !advancedMode() || reduceMotion || !('IntersectionObserver' in window)) return;
+        root.classList.add('ss-motion-ready');
+        app.querySelectorAll(revealSelector).forEach(function (el, index) {
+          el.style.setProperty('--ss-reveal-delay', Math.min(index % 5, 4) * 48 + 'ms');
+          setRevealState(el);
+        });
+      }
+      if (!reduceMotion && 'IntersectionObserver' in window) {
+        observer = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('ss-revealed');
+              observer.unobserve(entry.target);
+            }
+          });
+        }, { threshold: 0.08, rootMargin: '0px 0px -28px 0px' });
+      }
+      function init() {
+        window.addEventListener('scroll', updateScrollProgress, { passive: true });
+        window.addEventListener('resize', updateScrollProgress);
+        updateScrollProgress();
+        if (!app) return;
+        if (advancedMode() && !reduceMotion && observer) {
+          root.classList.add('ss-motion-ready');
+          prepareReveals();
+        }
+        if ('MutationObserver' in window) {
+          mutationObserver = new MutationObserver(function () {
+            if (advancedMode() && !reduceMotion) window.requestAnimationFrame(prepareReveals);
+          });
+          mutationObserver.observe(app, { childList: true, subtree: true });
+        }
+        var picker = document.getElementById('ui-version-select');
+        if (picker) picker.addEventListener('change', function () {
+          if (app) {
+            app.querySelectorAll('.ss-reveal, .ss-revealed').forEach(function (el) {
+              if (observer) observer.unobserve(el);
+              el.classList.remove('ss-reveal', 'ss-revealed');
+              delete el.dataset.ssRevealBound;
+            });
+          }
+          if (advancedMode() && !reduceMotion) {
+            root.classList.add('ss-motion-ready');
+            window.requestAnimationFrame(function () { prepareReveals(); updateScrollProgress(); });
+          } else {
+            root.classList.remove('ss-motion-ready');
+            root.style.removeProperty('--ss-scroll-progress');
+          }
+        });
+      }
+      document.addEventListener('click', function (event) {
+        if (!advancedMode() || reduceMotion) return;
+        var target = event.target && event.target.closest ? event.target : event.target;
+        if (!target || !target.closest) return;
+        var chip = target.closest('[data-action="toggle-assignment"]');
+        var actionBtn = target.closest('[data-action]');
+        var navBtn = target.closest('[data-view]');
+
+        if (chip) {
+          var itemId = chip.getAttribute('data-item-id');
+          var memberId = chip.getAttribute('data-member-id');
+          window.setTimeout(function () {
+            var rows = app ? app.querySelectorAll('.assignment-item') : [];
+            var row = Array.prototype.find.call(rows, function (el) { return el.getAttribute('data-item-id') === itemId; });
+            if (!row) return;
+            var chips = row.querySelectorAll('[data-action="toggle-assignment"]');
+            var nextChip = Array.prototype.find.call(chips, function (el) { return el.getAttribute('data-member-id') === memberId; });
+            if (nextChip) restartClass(nextChip, 'ss-assignment-pop', 520);
+            restartClass(row, 'ss-assignment-updated', 650);
+          }, 0);
+          return;
+        }
+        if (actionBtn) {
+          var action = actionBtn.getAttribute('data-action');
+          if (action === 'open-qr') {
+            window.setTimeout(function () {
+              var dialog = document.getElementById('qr-dialog');
+              if (dialog && dialog.open) restartClass(dialog, 'ss-qr-assembling', 1000);
+            }, 20);
+          } else if (action === 'split-threshold') {
+            window.setTimeout(function () {
+              var dialog = document.getElementById('split-dialog');
+              if (dialog && dialog.open) restartClass(dialog, 'ss-split-open', 1000);
+            }, 20);
+          } else if (action === 'finalize-settlement') {
+            window.setTimeout(function () {
+              if (!app) return;
+              restartClass(app, 'ss-settlement-finale', 1600);
+            }, 40);
+          } else if (['auto-split-diet', 'split-remaining-equally', 'unroll-all', 'unroll-single', 'undo-unroll', 'run-command'].indexOf(action) >= 0) {
+            window.setTimeout(function () {
+              var targetList = document.getElementById('assignment-list') || app;
+              if (targetList) restartClass(targetList, 'ss-action-confirm', 650);
+              if (!app) return;
+              Array.prototype.forEach.call(app.querySelectorAll('.assignment-item'), function (row, index) {
+                row.style.setProperty('--ss-action-delay', Math.min(index, 8) * 42 + 'ms');
+                restartClass(row, 'ss-distribute', 950);
+              });
+            }, 0);
+          }
+        }
+        if (navBtn && app) {
+          // app.js continues to own navigation. These classes only refresh the
+          // presentation cue after its existing delegated handler re-renders.
+          window.setTimeout(function () {
+            if (advancedMode()) {
+              root.classList.add('ss-motion-ready');
+              restartClass(app, 'ss-view-transition', 720);
+              prepareReveals();
+              updateScrollProgress();
+            }
+          }, 0);
+        }
+      }, true);
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
+      else init();
+    })();
+  </script>
+

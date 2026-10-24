@@ -1,3 +1,8 @@
+/**
+ * SplitSmart — app.js
+ * Application Entry Point, Navigation, View Routing, Event Handling, and Orchestration.
+ */
+
 import {
   uid,
   freshRoster,
@@ -11,7 +16,7 @@ import {
   exportBackup,
   importBackup,
   isStorageAvailable
-} from './state.js?v=2.2.0';
+} from './modules/state.js';
 
 import {
   toPaise,
@@ -23,14 +28,14 @@ import {
   netBalances,
   minimumCashFlow,
   runSelfTests
-} from './algorithm.js?v=2.2.0';
+} from './algorithms/algorithm.js';
 
 import {
   paymentUri,
   renderQR,
   splitPayment,
   isValidUpiId
-} from './qr.js?v=2.2.0';
+} from './modules/qr.js';
 
 import {
   makeSharePayload,
@@ -39,14 +44,15 @@ import {
   claimMessage,
   parseClaim,
   whatsappUrl
-} from './share.js?v=2.2.0';
+} from './modules/share.js';
 
 import {
   scanReceipt,
   listAvailableModels,
   CANDIDATE_MODELS
-} from './vision.js?v=2.2.0';
+} from './modules/vision.js';
 
+// DOM Selectors and Utilities
 const $ = sel => document.querySelector(sel);
 const $$ = sel => document.querySelectorAll(sel);
 const esc = str => String(str ?? '').replace(/[&<>"']/g, c => ({
@@ -57,15 +63,7 @@ const esc = str => String(str ?? '').replace(/[&<>"']/g, c => ({
   "'": '&#39;'
 }[c]));
 
-function renderAppHTML(html) {
-  if (typeof window.__splitSmartSetContent === 'function') {
-    window.__splitSmartSetContent(html);
-    return;
-  }
-  const mount = $('#app');
-  if (mount) mount.innerHTML = html;
-}
-
+// Application State
 let rosters = getRosters();
 let recent = getRecent();
 let settings = getSettings();
@@ -76,6 +74,12 @@ let previousUnrolls = []; // Stack for undo unroll
 let importedClaims = [];
 let pendingAmbiguityAction = null;
 let recognitionInstance = null;
+
+// Apply Theme
+function applyTheme() {
+  document.documentElement.setAttribute('data-theme', 'light');
+}
+applyTheme();
 
 // Toast Notification
 function toast(message, isError = false) {
@@ -88,6 +92,7 @@ function toast(message, isError = false) {
   setTimeout(() => el.remove(), 4000);
 }
 
+// Router
 function go(targetView) {
   view = targetView;
   render();
@@ -95,7 +100,9 @@ function go(targetView) {
 }
 
 function setNav() {
-  document.body.dataset.screen = view;
+  $$('.nav-link').forEach(link => {
+    link.classList.toggle('active', link.dataset.view === view);
+  });
   const titles = {
     dashboard: 'Overview',
     groups: 'Group Roster',
@@ -107,23 +114,17 @@ function setNav() {
     claim: 'Claim Your Items'
   };
   const title = titles[view] || 'SplitSmart';
-  if (typeof window.__splitSmartSetView === 'function') {
-    window.__splitSmartSetView(view, title);
-  } else {
-    $('.nav-link').forEach(link => {
-      link.classList.toggle('active', link.dataset.view === view);
-      if (link.dataset.view === view) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
-    });
-    const bc = $('#breadcrumb');
-    if (bc) bc.textContent = title;
-  }
+  const bc = $('#breadcrumb');
+  if (bc) bc.textContent = title;
   document.title = `${title} — SplitSmart`;
 }
 
+// Safe Group Member Access
 function members() {
   return activeGroup?.members || [];
 }
 
+// Outing Session Initialization
 function initOuting(group) {
   activeGroup = group || rosters[0] || freshRoster('My Outing', 4);
   outingSession = {
@@ -151,6 +152,7 @@ function initOuting(group) {
   go('bill');
 }
 
+// Header HTML Helper
 function renderHeader(title, subtitle, actionsHtml = '') {
   return `
     <div class="page-head">
@@ -193,7 +195,7 @@ function renderDashboard() {
     </div>
   `).join('');
 
-  renderAppHTML(`
+  $('#app').innerHTML = `
     ${renderHeader('Overview', 'Create a bill, assign what people consumed, and settle up cleanly via UPI.')}
 
     <section class="hero">
@@ -242,9 +244,18 @@ function renderDashboard() {
             </div>
           `}
         </div>
+
+        <div class="panel">
+          <h2>Optional Gemini Scanning</h2>
+          <p class="panel-intro">Scan physical receipts into item lists with Google Gemini 2.5 Flash.</p>
+          <p class="quiet" style="font-size:13px;margin-bottom:12px;">
+            ${settings.apiKey ? '✓ AI scanner is configured with your API key.' : 'AI scanner is unconfigured. Manual bill entry is fully functional.'}
+          </p>
+          <button class="button button-secondary button-small" data-view="settings">${settings.apiKey ? 'Manage AI Key' : 'Configure Gemini Key'}</button>
+        </div>
       </aside>
     </div>
-  `);
+  `;
 }
 
 /* ==========================================================================
@@ -310,7 +321,7 @@ function renderGroups() {
     `;
   }).join('');
 
-  renderAppHTML(`
+  $('#app').innerHTML = `
     ${renderHeader('Group Roster', 'Configure groups, individual UPI IDs, and dietary preferences. Everything stays on this device.', `
       <button class="button button-primary" data-action="create-group">＋ New Group</button>
     `)}
@@ -345,7 +356,7 @@ function renderGroups() {
         </label>
       </div>
     </section>
-  `);
+  `;
 }
 
 /* ==========================================================================
@@ -413,7 +424,7 @@ function renderBill() {
     `;
   }).join('');
 
-  renderAppHTML(`
+  $('#app').innerHTML = `
     ${renderHeader('Enter Bill Details', 'Add items manually or scan a paper receipt. You can finish without AI.', `
       <button class="button button-secondary" data-view="groups">Change Group (${esc(activeGroup?.name || 'Group')})</button>
     `)}
@@ -547,7 +558,7 @@ function renderBill() {
         </div>
       </aside>
     </div>
-  `);
+  `;
 }
 
 function syncBillFromDom() {
@@ -670,7 +681,7 @@ function renderAssign() {
     `;
   }).join('');
 
-  renderAppHTML(`
+  $('#app').innerHTML = `
     ${renderHeader('Assign Items', 'Tap or drag people onto items to assign who shared them. Divisible costs split equally.', `
       <button class="button button-secondary" data-action="back-to-bill">← Edit Bill</button>
     `)}
@@ -715,7 +726,7 @@ function renderAssign() {
       <button class="button button-primary" data-action="go-to-breakdown">Review Shares →</button>
       <button class="button button-secondary" data-action="share-claim-link">Share Bill for Claims</button>
     </div>
-  `);
+  `;
 
   // Attach Drag-and-Drop Event Listeners
   attachDragAndDrop();
@@ -863,7 +874,7 @@ function renderBreakdown() {
     `;
   }).join('');
 
-  renderAppHTML(`
+  $('#app').innerHTML = `
     ${renderHeader('Individual Shares &amp; Payments', 'Proportional distribution of food, taxes, and discounts based on consumption.', `
       <button class="button button-secondary" data-action="back-to-assign">← Edit Assignments</button>
     `)}
@@ -973,7 +984,7 @@ function renderBreakdown() {
       </button>
       <button class="button button-secondary" data-action="save-current-bill">Save Session Locally</button>
     </div>
-  `);
+  `;
 }
 
 // Live Summary for Payer Inputs (Runs without re-rendering or stealing input focus)
@@ -1066,13 +1077,13 @@ function renderSettlements() {
     const balances = netBalances(calc.shares, bill.payers || []);
     settlements = minimumCashFlow(balances);
   } catch (err) {
-    renderAppHTML(`
+    $('#app').innerHTML = `
       ${renderHeader('Settlement Plan Error', 'Unable to balance cash flow.')}
       <div class="panel">
         <div class="warning">${esc(err.message)}</div>
         <button class="button button-primary" data-view="breakdown">← Return to Shares &amp; Payments</button>
       </div>
-    `);
+    `;
     return;
   }
 
@@ -1131,7 +1142,7 @@ function renderSettlements() {
     `;
   }).join('');
 
-  renderAppHTML(`
+  $('#app').innerHTML = `
     ${renderHeader('Settlement Plan', 'Direct peer-to-peer transfers to balance the group using Minimum Cash Flow.', `
       <button class="button button-secondary" data-view="breakdown">← Back to Shares</button>
     `)}
@@ -1163,14 +1174,14 @@ function renderSettlements() {
         Both the sender and receiver should verify transaction success in their banking or UPI app.
       </p>
     </div>
-  `);
+  `;
 }
 
 /* ==========================================================================
    VIEW 7: SETTINGS
    ========================================================================== */
 function renderSettings() {
-  renderAppHTML(`
+  $('#app').innerHTML = `
     ${renderHeader('Settings', 'Configure optional receipt scanning, local storage, and privacy preferences.')}
 
     <section class="panel">
@@ -1221,7 +1232,15 @@ function renderSettings() {
       </div>
     </section>
 
-  `);
+    <section class="panel">
+      <h2>Financial Engine Validation</h2>
+      <p class="panel-intro">Run internal self-tests for mathematical invariants (proportional shares, largest remainder penny rounding, cash flow balance).</p>
+      <div class="button-row">
+        <button class="button button-secondary button-small" data-action="run-financial-tests">Run Calculation Checks</button>
+      </div>
+      <div id="test-results-output" style="margin-top:12px;font-family:var(--font-mono);font-size:12.5px;"></div>
+    </section>
+  `;
 }
 
 /* ==========================================================================
@@ -1233,14 +1252,14 @@ function renderClaim() {
   try {
     decodedClaimPayload = decodeShare(window.location.hash);
   } catch (err) {
-    renderAppHTML(`
+    $('#app').innerHTML = `
       <div class="panel" style="max-width:540px;margin:40px auto;text-align:center;">
         <div style="font-size:36px;margin-bottom:12px;">⚠️</div>
         <h2>Invalid or Expired Link</h2>
         <p style="margin-bottom:20px;">${esc(err.message)}</p>
         <a class="button button-primary" href="${esc(window.location.pathname)}">Open SplitSmart Home</a>
       </div>
-    `);
+    `;
     return;
   }
 
@@ -1257,7 +1276,7 @@ function renderClaim() {
     </label>
   `).join('');
 
-  renderAppHTML(`
+  $('#app').innerHTML = `
     <div style="max-width:620px;margin:0 auto;">
       <div class="panel" style="background:var(--accent);color:white;border:none;">
         <h1 style="color:white;font-size:22px;margin-bottom:4px;">${esc(p.outing)}</h1>
@@ -1285,7 +1304,7 @@ function renderClaim() {
         <div id="claim-result-box" style="margin-top:16px;"></div>
       </div>
     </div>
-  `);
+  `;
 }
 
 /* ==========================================================================
@@ -1937,7 +1956,6 @@ document.addEventListener('click', async e => {
       }
       break;
     }
-
     case 'clear-api-key': {
       settings.apiKey = '';
       settings.saveKey = false;
@@ -1977,6 +1995,16 @@ document.addEventListener('click', async e => {
         settings = getSettings();
         toast('All local data wiped.');
         go('dashboard');
+      }
+      break;
+    }
+
+    case 'run-financial-tests': {
+      try {
+        const res = runSelfTests();
+        $('#test-results-output').innerHTML = `<span style="color:var(--success);">✓ ${esc(res)}</span>`;
+      } catch (err) {
+        $('#test-results-output').innerHTML = `<span style="color:var(--danger);">✗ Test failure: ${esc(err.message)}</span>`;
       }
       break;
     }

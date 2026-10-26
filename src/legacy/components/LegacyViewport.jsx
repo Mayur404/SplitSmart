@@ -1,6 +1,10 @@
 import React from 'react';
 
-/** Mount point for existing bill workflows during the incremental React migration. */
+/** Dedicated React mount point for feature screens. */
 export default function LegacyViewport() {
-  return <div id="app" className="content" tabIndex={-1} />;
+  return (
+    <div id="app" className="content" tabIndex={-1} aria-live="polite">
+      <div id="legacy-react-root" className="legacy-react-root" />
+    </div>
+  );
 }

@@ -1,0 +1,49 @@
+.flow-step-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.flow-step-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 5px;
+  border-radius: 5px;
+}
+.flow-step-button:hover .flow-label {
+  color: var(--accent);
+}
+.flow-step-button .flow-dot {
+  flex: 0 0 auto;
+}
+.flow-steps li {
+  cursor: pointer;
+}
+.flow-steps li[aria-current='step'] .flow-step-button {
+  color: var(--ink);
+}
+.share-link-input {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 10px;
+}
+.share-dialog-actions {
+  margin-top: 16px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.startup-error {
+  position: fixed;
+  z-index: 10000;
+  inset: auto 16px 16px;
+  padding: 14px 18px;
+  border-radius: 10px;
+  background: var(--danger);
+  color: var(--on-surface);
+  box-shadow: var(--shadow-lg);
+}

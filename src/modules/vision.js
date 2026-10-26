@@ -10,7 +10,7 @@ export const CANDIDATE_MODELS = [
   'gemini-3.5-flash-lite',
   'gemini-3.8-flash',
   'gemini-2.5-flash-lite',
-  'gemini-1.5-flash-latest'
+  'gemini-1.5-flash-latest',
 ];
 
 /**
@@ -31,10 +31,16 @@ export async function compressImage(file) {
     // Wait for image decode with fallback to onload
     await new Promise((resolve, reject) => {
       if (img.decode) {
-        img.decode().then(resolve).catch(() => {
-          img.onload = () => resolve();
-          img.onerror = () => reject(new Error('Could not load or decode the image. Try a standard JPEG, PNG, or WEBP.'));
-        });
+        img
+          .decode()
+          .then(resolve)
+          .catch(() => {
+            img.onload = () => resolve();
+            img.onerror = () =>
+              reject(
+                new Error('Could not load or decode the image. Try a standard JPEG, PNG, or WEBP.'),
+              );
+          });
       } else {
         img.onload = () => resolve();
         img.onerror = () => reject(new Error('Could not load image.'));
@@ -69,9 +75,9 @@ export async function compressImage(file) {
 
     const blob = await new Promise((resolve, reject) => {
       canvas.toBlob(
-        b => (b ? resolve(b) : reject(new Error('Canvas toBlob compression failed.'))),
+        (b) => (b ? resolve(b) : reject(new Error('Canvas toBlob compression failed.'))),
         'image/jpeg',
-        0.8
+        0.8,
       );
     });
 
@@ -82,7 +88,7 @@ export async function compressImage(file) {
       originalWidth: width,
       originalHeight: height,
       scaledWidth: targetWidth,
-      scaledHeight: targetHeight
+      scaledHeight: targetHeight,
     };
   } finally {
     URL.revokeObjectURL(objectUrl);
@@ -118,7 +124,7 @@ export function validateReceipt(raw) {
     throw new Error('No items were found on the receipt.');
   }
 
-  const parseMoney = (val, fieldName) => {
+  const parseMoney = (val) => {
     const n = Number(val);
     if (!Number.isFinite(n) || n < 0 || n > 10000000) {
       return 0;
@@ -127,13 +133,16 @@ export function validateReceipt(raw) {
   };
 
   const items = raw.items.slice(0, 100).map((it, idx) => {
-    const name = typeof it.name === 'string' && it.name.trim() ? it.name.trim().slice(0, 80) : `Item ${idx + 1}`;
+    const name =
+      typeof it.name === 'string' && it.name.trim()
+        ? it.name.trim().slice(0, 80)
+        : `Item ${idx + 1}`;
     let qty = Number(it.quantity);
     if (!Number.isFinite(qty) || qty <= 0) qty = 1;
     qty = Math.round(qty * 100) / 100;
 
-    let unitPrice = parseMoney(it.unitPrice, 'Unit price');
-    let totalPrice = parseMoney(it.totalPrice, 'Total price');
+    let unitPrice = parseMoney(it.unitPrice);
+    let totalPrice = parseMoney(it.totalPrice);
 
     if (unitPrice === 0 && totalPrice > 0) {
       unitPrice = Math.round((totalPrice / qty) * 100) / 100;
@@ -149,41 +158,46 @@ export function validateReceipt(raw) {
       quantity: qty,
       unitPrice,
       totalPrice,
-      category
+      category,
     };
   });
 
   const tax = raw.tax || {};
-  const cgst = parseMoney(tax.cgst, 'CGST');
-  const sgst = parseMoney(tax.sgst, 'SGST');
-  const serviceCharge = parseMoney(tax.serviceCharge, 'Service charge');
-  const discount = parseMoney(raw.discount, 'Discount');
+  const cgst = parseMoney(tax.cgst);
+  const sgst = parseMoney(tax.sgst);
+  const serviceCharge = parseMoney(tax.serviceCharge);
+  const discount = parseMoney(raw.discount);
 
   // Recalculate totals in JavaScript (never trust AI calculations)
   const calculatedFoodSubtotal = items.reduce((acc, it) => acc + it.totalPrice, 0);
-  const calculatedGrandTotal = Math.max(0, Math.round((calculatedFoodSubtotal + cgst + sgst + serviceCharge - discount) * 100) / 100);
+  const calculatedGrandTotal = Math.max(
+    0,
+    Math.round((calculatedFoodSubtotal + cgst + sgst + serviceCharge - discount) * 100) / 100,
+  );
 
-  const statedGrandTotal = raw.grandTotal != null && Number.isFinite(Number(raw.grandTotal))
-    ? parseMoney(raw.grandTotal, 'Grand total')
-    : calculatedGrandTotal;
+  const statedGrandTotal =
+    raw.grandTotal != null && Number.isFinite(Number(raw.grandTotal))
+      ? parseMoney(raw.grandTotal)
+      : calculatedGrandTotal;
 
   const hasDiscrepancy = Math.abs(statedGrandTotal - calculatedGrandTotal) > 0.05;
 
   return {
-    restaurantName: typeof raw.restaurantName === 'string' && raw.restaurantName.trim()
-      ? raw.restaurantName.trim().slice(0, 80)
-      : 'Scanned Receipt',
+    restaurantName:
+      typeof raw.restaurantName === 'string' && raw.restaurantName.trim()
+        ? raw.restaurantName.trim().slice(0, 80)
+        : 'Scanned Receipt',
     items,
     tax: {
       cgst,
       sgst,
-      serviceCharge
+      serviceCharge,
     },
     discount,
     calculatedGrandTotal,
     statedGrandTotal,
     hasDiscrepancy,
-    discrepancyAmount: Math.round((statedGrandTotal - calculatedGrandTotal) * 100) / 100
+    discrepancyAmount: Math.round((statedGrandTotal - calculatedGrandTotal) * 100) / 100,
   };
 }
 
@@ -205,8 +219,12 @@ export async function listAvailableModels(apiKey) {
   const data = await response.json();
   const models = Array.isArray(data?.models) ? data.models : [];
   return models
-    .filter(m => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
-    .map(m => m.name.replace(/^models\//, ''));
+    .filter(
+      (m) =>
+        Array.isArray(m.supportedGenerationMethods) &&
+        m.supportedGenerationMethods.includes('generateContent'),
+    )
+    .map((m) => m.name.replace(/^models\//, ''));
 }
 
 /**
@@ -257,22 +275,22 @@ If a tax or discount is not present, use 0. Do not include markdown ticks or exp
           {
             inline_data: {
               mime_type: image.mimeType,
-              data: image.data
-            }
-          }
-        ]
-      }
+              data: image.data,
+            },
+          },
+        ],
+      },
     ],
     generationConfig: {
       responseMimeType: 'application/json',
-      temperature: 0.1
-    }
+      temperature: 0.1,
+    },
   };
 
   // Determine models to try
   let modelsToTry = [...CANDIDATE_MODELS];
   if (preferredModel && preferredModel !== 'auto') {
-    modelsToTry = [preferredModel, ...CANDIDATE_MODELS.filter(m => m !== preferredModel)];
+    modelsToTry = [preferredModel, ...CANDIDATE_MODELS.filter((m) => m !== preferredModel)];
   }
 
   const abortController = new AbortController();
@@ -294,10 +312,10 @@ If a tax or discount is not present, use 0. Do not include markdown ticks or exp
         const response = await fetch(endpoint, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
           },
           signal: abortController.signal,
-          body: JSON.stringify(requestBody)
+          body: JSON.stringify(requestBody),
         });
 
         // If 404, this specific model is not available or restricted for this account. Fallback to next.
@@ -320,20 +338,28 @@ If a tax or discount is not present, use 0. Do not include markdown ticks or exp
         }
 
         const result = await response.json();
-        const candidateText = result.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('');
+        const candidateText = result.candidates?.[0]?.content?.parts
+          ?.map((p) => p.text || '')
+          .join('');
 
         if (!candidateText || !candidateText.trim()) {
           throw new Error(`Gemini (${model}) did not return any readable content for this image.`);
         }
 
         // Strip markdown code fences if present (e.g. ```json ... ```)
-        const cleanJson = candidateText.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+        const cleanJson = candidateText
+          .trim()
+          .replace(/^```(?:json)?\s*/i, '')
+          .replace(/\s*```$/, '')
+          .trim();
 
         let parsed;
         try {
           parsed = JSON.parse(cleanJson);
         } catch {
-          throw new Error(`Could not parse Gemini (${model}) receipt output as JSON. Please review or enter items manually.`);
+          throw new Error(
+            `Could not parse Gemini (${model}) receipt output as JSON. Please review or enter items manually.`,
+          );
         }
 
         const validated = validateReceipt(parsed);
@@ -341,7 +367,11 @@ If a tax or discount is not present, use 0. Do not include markdown ticks or exp
         return validated;
       } catch (err) {
         // If it's a fatal authentication or quota error, rethrow immediately
-        if (err.message.includes('API key is invalid') || err.message.includes('rate limit') || err.name === 'AbortError') {
+        if (
+          err.message.includes('API key is invalid') ||
+          err.message.includes('rate limit') ||
+          err.name === 'AbortError'
+        ) {
           throw err;
         }
         lastError = err;
@@ -352,7 +382,7 @@ If a tax or discount is not present, use 0. Do not include markdown ticks or exp
     if (onProgress) onProgress('Discovering available models on your API key…');
     try {
       const available = await listAvailableModels(cleanKey);
-      const untried = available.filter(m => !triedModels.includes(m));
+      const untried = available.filter((m) => !triedModels.includes(m));
 
       for (const model of untried) {
         if (onProgress) onProgress(`Trying detected model ${model}…`);
@@ -362,25 +392,34 @@ If a tax or discount is not present, use 0. Do not include markdown ticks or exp
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           signal: abortController.signal,
-          body: JSON.stringify(requestBody)
+          body: JSON.stringify(requestBody),
         });
 
         if (!response.ok) continue;
 
         const result = await response.json();
-        const candidateText = result.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('');
+        const candidateText = result.candidates?.[0]?.content?.parts
+          ?.map((p) => p.text || '')
+          .join('');
         if (!candidateText) continue;
 
-        const cleanJson = candidateText.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+        const cleanJson = candidateText
+          .trim()
+          .replace(/^```(?:json)?\s*/i, '')
+          .replace(/\s*```$/, '')
+          .trim();
         const parsed = JSON.parse(cleanJson);
         const validated = validateReceipt(parsed);
         validated.modelUsed = model;
         return validated;
       }
-    } catch {}
+    } catch {
+      /* Try the next model in the fallback cascade. */
+    }
 
     throw new Error(
-      `Gemini request failed: none of the tested models (${triedModels.slice(0, 3).join(', ')}) were accessible with this API key (HTTP 404). Please verify your Google AI Studio project settings or test your key in Settings.`
+      lastError?.message ||
+        `Gemini request failed: none of the tested models (${triedModels.slice(0, 3).join(', ')}) were accessible with this API key (HTTP 404). Please verify your Google AI Studio project settings or test your key in Settings.`,
     );
   } finally {
     clearTimeout(timeoutId);

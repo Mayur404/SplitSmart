@@ -18,15 +18,21 @@ export function isValidUpiId(upiId) {
  */
 export function paymentUri({ upiId, name, amountPaise, note = 'SplitSmart settlement' }) {
   if (!isValidUpiId(upiId)) {
-    throw new Error('Please configure a valid UPI ID (e.g., name@okhdfcbank) to create a payment link.');
+    throw new Error(
+      'Please configure a valid UPI ID (e.g., name@okhdfcbank) to create a payment link.',
+    );
   }
   const paise = Math.trunc(Number(amountPaise) || 0);
   if (paise <= 0) {
     throw new Error('Payment amount must be greater than ₹0.00.');
   }
 
-  const cleanName = String(name || 'SplitSmart Payee').trim().slice(0, 70);
-  const cleanNote = String(note || 'Settlement').trim().slice(0, 80);
+  const cleanName = String(name || 'SplitSmart Payee')
+    .trim()
+    .slice(0, 70);
+  const cleanNote = String(note || 'Settlement')
+    .trim()
+    .slice(0, 80);
   const amountRupees = (paise / 100).toFixed(2);
 
   const params = new URLSearchParams({
@@ -34,7 +40,7 @@ export function paymentUri({ upiId, name, amountPaise, note = 'SplitSmart settle
     pn: cleanName,
     am: amountRupees,
     cu: 'INR',
-    tn: cleanNote
+    tn: cleanNote,
   });
 
   return `upi://pay?${params.toString()}`;
@@ -77,12 +83,16 @@ export function renderQR(container, uri, size = 180) {
       text: uri,
       width: size,
       height: size,
-      colorDark: '#133527',
-      colorLight: '#ffffff',
-      correctLevel: window.QRCode.CorrectLevel?.M ?? 1
+      colorDark:
+        getComputedStyle(document.documentElement).getPropertyValue('--qr-dark').trim() ||
+        '#133527',
+      colorLight:
+        getComputedStyle(document.documentElement).getPropertyValue('--qr-light').trim() ||
+        '#ffffff',
+      correctLevel: window.QRCode.CorrectLevel?.M ?? 1,
     });
     return true;
-  } catch (err) {
+  } catch {
     container.textContent = 'Could not generate QR code image.';
     return false;
   }

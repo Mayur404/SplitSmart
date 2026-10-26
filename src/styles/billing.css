@@ -1,0 +1,239 @@
+/* Empty State */
+.empty {
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-lg);
+  padding: 40px 24px;
+  text-align: center;
+  background-color: var(--surface-alt);
+}
+
+.empty h3 {
+  font-size: 17px;
+  margin-bottom: 8px;
+}
+
+.empty p {
+  color: var(--muted);
+  max-width: 48ch;
+  margin: 0 auto 18px;
+  font-size: 14px;
+}
+
+/* Lists */
+.list {
+  border-top: 1px solid var(--line);
+}
+
+.list-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 4px;
+  border-bottom: 1px solid var(--line);
+}
+
+.list-row-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.list-row-title {
+  font-weight: 650;
+  font-size: 15px;
+}
+
+.list-row-sub {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.member-initial {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: var(--accent-soft);
+  color: var(--accent-strong);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: var(--r-full);
+  background-color: var(--surface-alt);
+  color: var(--ink-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.pill-veg {
+  background-color: var(--success-soft);
+  color: var(--success);
+  border: 1px solid var(--success-line);
+}
+
+.pill-non-veg {
+  background-color: var(--danger-soft);
+  color: var(--danger);
+  border: 1px solid var(--danger);
+}
+
+/* Member Chips (Tap to assign) */
+.member-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--line-strong);
+  background-color: var(--surface);
+  color: var(--ink-secondary);
+  font-size: 13px;
+  font-weight: 550;
+  cursor: pointer;
+  transition: all 0.15s var(--ease);
+  user-select: none;
+}
+
+.chip:hover {
+  border-color: var(--accent);
+  background-color: var(--surface-alt);
+}
+
+.chip.selected {
+  background-color: var(--accent-soft);
+  color: var(--accent-strong);
+  border-color: var(--accent);
+  font-weight: 650;
+}
+
+/* Drag and Drop Assignment Styles */
+.chip[draggable='true'] {
+  cursor: grab;
+}
+
+.chip.dragging {
+  opacity: 0.4;
+  cursor: grabbing;
+}
+
+.assignment-item {
+  padding: 18px 0;
+  border-bottom: 1px solid var(--line);
+  transition:
+    background-color 0.15s var(--ease),
+    border-color 0.15s var(--ease);
+}
+
+.assignment-item.drop-target {
+  background-color: var(--accent-soft);
+  border-radius: var(--r-md);
+  padding: 18px 12px;
+  border: 2px dashed var(--accent);
+}
+
+.assignment-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 650;
+  font-size: 15px;
+}
+
+.assignment-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Breakdown Table */
+.breakdown-row {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 1fr 1fr 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 8px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13.5px;
+}
+
+.breakdown-row.head {
+  font-weight: 650;
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+details.breakdown-item {
+  border-bottom: 1px solid var(--line);
+}
+
+details.breakdown-item summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+details.breakdown-item summary::-webkit-details-marker {
+  display: none;
+}
+
+details.breakdown-item[open] {
+  background-color: var(--surface-alt);
+  border-radius: var(--r-md);
+}
+
+.breakdown-expanded-info {
+  padding: 10px 14px 14px;
+  font-size: 12.5px;
+  color: var(--ink-secondary);
+}
+
+/* Settlement Cards */
+.settlement {
+  display: grid;
+  grid-template-columns: 1.4fr auto 1fr auto;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.settlement:last-child {
+  border-bottom: none;
+}
+
+.settlement-payer,
+.settlement-payee {
+  display: flex;
+  flex-direction: column;
+}
+
+.settlement-arrow {
+  color: var(--muted);
+  font-size: 18px;
+}
+
+.settlement-amount {
+  font-size: 17px;
+  color: var(--ink);
+}
+
+.pay-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}

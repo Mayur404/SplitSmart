@@ -1,0 +1,580 @@
+/* =====================================================================================
+   MOTION LAYER (Version B only). Original re-implementations of well-known web-motion
+   techniques in vanilla CSS. Everything here is switched off for reduced-motion users,
+   hover effects only exist on fine-pointer devices, and nothing runs on the claim screen.
+   ===================================================================================== */
+@property --angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+/* 1. Aurora: three slowly drifting colour fields behind the whole app (no blur filter = cheap on phones) */
+body {
+  background-color: var(--paper);
+}
+.main {
+  background-color: transparent;
+}
+.app-shell {
+  position: relative;
+  z-index: 1;
+}
+body::before {
+  content: '';
+  position: fixed;
+  inset: -20vmax;
+  z-index: 0;
+  pointer-events: none;
+  will-change: transform;
+  background:
+    radial-gradient(38vmax 38vmax at 18% 22%, var(--aur-1), transparent 62%),
+    radial-gradient(34vmax 34vmax at 82% 18%, var(--aur-2), transparent 62%),
+    radial-gradient(42vmax 42vmax at 62% 88%, var(--aur-3), transparent 62%);
+  animation: aurora 28s ease-in-out infinite alternate;
+}
+@keyframes aurora {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+  }
+  50% {
+    transform: translate3d(4vmax, -3vmax, 0) rotate(6deg) scale(1.08);
+  }
+  100% {
+    transform: translate3d(-4vmax, 4vmax, 0) rotate(-5deg) scale(1.02);
+  }
+}
+html.is-claim body::before,
+html.is-claim body::after {
+  display: none;
+}
+
+/* 2. Cursor glow: a soft light that trails the pointer across the page (desktop only) */
+@media (hover: hover) and (pointer: fine) {
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: radial-gradient(
+      460px circle at var(--gx, -300px) var(--gy, -300px),
+      var(--spot-soft),
+      transparent 70%
+    );
+  }
+}
+
+/* 3. Spotlight cards: a radial highlight follows the cursor inside the card under it */
+.panel,
+.hero,
+.settlement {
+  position: relative;
+  isolation: isolate;
+}
+.panel::before,
+.hero::before,
+.settlement::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+    280px circle at var(--mx, 50%) var(--my, 50%),
+    var(--spot),
+    transparent 72%
+  );
+  transition: opacity 0.35s var(--ease);
+}
+.panel.spot::before,
+.hero.spot::before,
+.settlement.spot::before {
+  opacity: 1;
+}
+.panel.spot,
+.hero.spot {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--line));
+}
+
+/* 4. Rotating light beam around the main call-to-action buttons (conic gradient + masked ring) */
+.button {
+  position: relative;
+  overflow: hidden;
+}
+.button-primary {
+  isolation: isolate;
+  translate: var(--tx, 0) var(--ty, 0);
+  transition-property: transform, box-shadow, background-color, border-color, color, translate;
+}
+.button-primary:is(
+    [data-action='go-to-assign'],
+    [data-action='go-to-breakdown'],
+    [data-action='finalize-settlement'],
+    [data-action='share-claim-link'],
+    [data-action='new-bill']
+  )::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 2px;
+  pointer-events: none;
+  background: conic-gradient(
+    from var(--angle),
+    transparent 0 62%,
+    var(--specular-highlight) 82%,
+    transparent 100%
+  );
+  -webkit-mask:
+    linear-gradient(var(--mask-solid) 0 0) content-box,
+    linear-gradient(var(--mask-solid) 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: spin-angle 3.2s linear infinite;
+}
+@keyframes spin-angle {
+  to {
+    --angle: 360deg;
+  }
+}
+
+/* 5. Sheen sweep across primary buttons on hover */
+.button-primary::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 40%;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent, var(--specular-sheen), transparent);
+  transform: skewX(-20deg) translateX(-160%);
+}
+.button-primary:hover::after {
+  animation: sheen 0.85s var(--ease);
+}
+@keyframes sheen {
+  to {
+    transform: skewX(-20deg) translateX(460%);
+  }
+}
+
+/* 6. Ripple from the pointer position (spans are added by advanced.js) */
+.chip,
+.tab {
+  position: relative;
+  overflow: hidden;
+}
+.fx-ripple {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  background: currentColor;
+  opacity: 0.24;
+  transform: scale(0);
+  animation: ripple 0.65s ease-out forwards;
+}
+@keyframes ripple {
+  to {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+
+/* 7. Headline: letters blur-in with a stagger, then one light sweep across the finished word */
+.fx-char {
+  display: inline-block;
+  white-space: pre;
+  animation: char-in 0.7s var(--ease-spring) both;
+  animation-delay: calc(var(--i, 0) * 26ms);
+}
+@keyframes char-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.55em) scale(0.92);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+.page-head h1.fx-shine {
+  background: linear-gradient(
+      100deg,
+      var(--ink) 0%,
+      var(--ink) 40%,
+      var(--accent) 50%,
+      var(--ink) 60%,
+      var(--ink) 100%
+    )
+    100% 0 / 300% 100% no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: shine 1.8s ease-in-out 1 forwards;
+}
+@keyframes shine {
+  to {
+    background-position: 0% 0;
+  }
+}
+
+/* 8. View change: heavier, blurrier arrival than the base stagger */
+@keyframes rise-blur {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+#app.view-enter > * {
+  animation: rise-blur 0.65s var(--ease) both;
+}
+#app[data-screen='claim'].view-enter > * {
+  animation: none;
+}
+
+/* 9. Receipt "prints out" top-to-bottom, then the settlement cards slide in one by one */
+@keyframes print-out {
+  from {
+    clip-path: inset(0 0 100% 0);
+    transform: translateY(-16px);
+  }
+  to {
+    clip-path: inset(-24px -24px -48px -24px);
+    transform: none;
+  }
+}
+#app.view-enter[data-screen='breakdown'] .panel,
+#app.view-enter[data-screen='settlements'] .panel:not(:last-child) {
+  animation: print-out 0.95s cubic-bezier(0.3, 0.7, 0.2, 1) both;
+  filter: none;
+}
+@keyframes slide-row {
+  from {
+    opacity: 0;
+    transform: translateX(-22px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+#app.view-enter[data-screen='settlements'] .settlement {
+  animation: slide-row 0.55s var(--ease-spring) both;
+  animation-delay: calc(0.45s + var(--r, 0) * 90ms);
+}
+
+/* 10. Payment flow: a coin travels payer → payee along the dashed line */
+.settlement-arrow {
+  background: radial-gradient(circle, var(--accent) 0 3.6px, transparent 4.6px) no-repeat 0 50% /
+    11px 11px;
+  filter: drop-shadow(0 0 5px var(--accent));
+  animation: coin 2s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+@keyframes coin {
+  0% {
+    background-position: 0 50%;
+    opacity: 0.2;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    background-position: 92% 50%;
+    opacity: 0.2;
+  }
+}
+.settlement:hover .settlement-arrow::after {
+  animation: nudge 0.6s ease infinite alternate;
+}
+@keyframes nudge {
+  to {
+    right: -3px;
+  }
+}
+
+/* 11. Count-up finish + chip pop (class toggled by advanced.js on the element that just changed) */
+.count-done {
+  display: inline-block;
+  animation: amount-pop 0.55s var(--ease-spring);
+}
+@keyframes amount-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.09);
+    color: var(--accent);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.chip.just-toggled {
+  animation: chip-pop 0.5s var(--ease-spring);
+}
+@keyframes chip-pop {
+  0% {
+    transform: scale(0.82);
+  }
+  55% {
+    transform: scale(1.13);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* 12. Flow bar: connector lines fill in; current step emits a pulse ring */
+.flow-dot {
+  position: relative;
+}
+.flow-steps li + li::before {
+  background: linear-gradient(var(--accent), var(--accent)) left center / 0% 100% no-repeat
+    var(--line-strong);
+  transition: background-size 0.7s var(--ease);
+}
+.flow-steps li.done + li::before,
+.flow-steps li.done + li.current::before {
+  background: linear-gradient(var(--accent), var(--accent)) left center / 100% 100% no-repeat
+    var(--line-strong);
+}
+.flow-steps li.current .flow-dot::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  pointer-events: none;
+  animation: ring 1.9s ease-out infinite;
+}
+@keyframes ring {
+  from {
+    transform: scale(0.8);
+    opacity: 0.9;
+  }
+  to {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+/* 13. Nav + brand micro-motion */
+.brand-mark {
+  transition: transform var(--t-base) var(--ease-spring);
+}
+.brand:hover .brand-mark {
+  transform: rotate(-10deg) scale(1.1);
+}
+.nav-icon {
+  transition: transform var(--t-base) var(--ease-spring);
+}
+.nav-link:hover .nav-icon {
+  transform: translateX(3px) scale(1.1);
+}
+
+/* 14. Toasts: spring in, with a shrinking timer bar that shows when it will leave */
+.toast {
+  position: relative;
+  overflow: hidden;
+  animation: toast-pop 0.55s var(--ease-spring);
+}
+@keyframes toast-pop {
+  from {
+    opacity: 0;
+    transform: translateX(46px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.toast::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: 100%;
+  background: currentColor;
+  opacity: 0.35;
+  transform-origin: left;
+  animation: toast-timer 4s linear forwards;
+}
+@keyframes toast-timer {
+  to {
+    transform: scaleX(0);
+  }
+}
+
+/* 15. Dialogs: pop in with depth, blurred backdrop, content staggers up; QR gets a scanner line */
+.dialog[open] {
+  animation: dialog-pop 0.5s var(--ease-spring);
+}
+.dialog[open]::backdrop {
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  animation: fade-in var(--t-base) var(--ease);
+}
+@keyframes dialog-pop {
+  from {
+    opacity: 0;
+    transform: translateY(28px) scale(0.93);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+.dialog[open]
+  :is(h2, p, .dialog-fields, .choice-list, .split-options, .qr-dialog-body, .dialog-actions) {
+  animation: rise 0.55s var(--ease) both;
+}
+.dialog[open] :is(p, .dialog-fields, .choice-list, .split-options, .qr-dialog-body) {
+  animation-delay: 70ms;
+}
+.dialog[open] .dialog-actions {
+  animation-delay: 140ms;
+}
+.qr-container-large {
+  position: relative;
+  overflow: hidden;
+}
+.qr-container-large::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2px;
+  pointer-events: none;
+  opacity: 0.55;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  box-shadow: 0 0 10px var(--accent);
+  animation: scan 2.2s ease-in-out 2;
+}
+@keyframes scan {
+  0% {
+    top: 0;
+  }
+  50% {
+    top: calc(100% - 2px);
+  }
+  100% {
+    top: 0;
+  }
+}
+
+/* 16. Settled / success burst: confetti pieces are created by advanced.js */
+.fx-confetti {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 300;
+}
+.fx-confetti i {
+  position: absolute;
+  width: 8px;
+  height: 13px;
+  border-radius: 2px;
+  background: var(--c);
+  animation: confetti 1.3s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+@keyframes confetti {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg);
+  }
+  40% {
+    opacity: 1;
+    transform: translate(calc(var(--dx) * 0.6), var(--uy)) rotate(calc(var(--rot) * 0.5));
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), var(--dy)) rotate(var(--rot));
+  }
+}
+
+/* 17. Subtle 3D tilt on the receipt (class + variables set by advanced.js) */
+.panel.tilt {
+  transform: perspective(1000px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  transition: transform 0.25s var(--ease);
+}
+
+@media (max-width: 768px) {
+  body::before {
+    animation-duration: 40s;
+  }
+}
+
+/* Reduced motion: keep the look, drop every moving part */
+@media (prefers-reduced-motion: reduce) {
+  body::before {
+    animation: none;
+  }
+  body::after,
+  .panel::before,
+  .hero::before,
+  .settlement::before {
+    display: none;
+  }
+  .button-primary::before,
+  .button-primary::after,
+  .qr-container-large::after,
+  .toast::after,
+  .fx-ripple,
+  .fx-confetti {
+    display: none !important;
+  }
+  .fx-char,
+  .count-done,
+  .chip.just-toggled,
+  .settlement-arrow,
+  .flow-steps li.current .flow-dot::after {
+    animation: none !important;
+  }
+  .settlement-arrow {
+    background: none;
+    filter: none;
+  }
+  .page-head h1.fx-shine {
+    animation: none;
+    background: none;
+    color: inherit;
+    -webkit-text-fill-color: currentColor;
+  }
+  #app.view-enter > *,
+  #app.view-enter[data-screen] .panel,
+  #app.view-enter[data-screen] .settlement,
+  .toast,
+  .dialog[open],
+  .dialog[open] * {
+    animation: none !important;
+  }
+  .panel.tilt {
+    transform: none;
+  }
+  .button-primary {
+    translate: none;
+  }
+}

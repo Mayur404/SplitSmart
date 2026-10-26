@@ -1,0 +1,316 @@
+/* ---------- Receipt language: Breakdown + Settlements ---------- */
+#app[data-screen='breakdown'] .panel,
+#app[data-screen='settlements'] .panel:not(:last-child) {
+  background: var(--noise), var(--surface);
+  background-blend-mode: multiply;
+  border-radius: 6px 6px 0 0;
+  border-bottom: 0;
+  margin-bottom: 30px;
+  padding-bottom: 28px;
+  position: relative;
+  box-shadow:
+    0 1px 0 var(--receipt-highlight) inset,
+    0 10px 18px -12px var(--receipt-shadow);
+}
+/* Perforated tear-off edge */
+#app[data-screen='breakdown'] .panel::after,
+#app[data-screen='settlements'] .panel:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: -1px;
+  right: -1px;
+  top: 100%;
+  height: 10px;
+  pointer-events: none;
+  background:
+    linear-gradient(135deg, var(--surface) 5px, transparent 0) 0 0 / 14px 10px repeat-x,
+    linear-gradient(-135deg, var(--surface) 5px, transparent 0) 0 0 / 14px 10px repeat-x;
+  filter: drop-shadow(0 1px 0 var(--line));
+}
+#app[data-screen='breakdown'] .breakdown-row,
+#app[data-screen='breakdown'] details.breakdown-item {
+  border-bottom: 1px dashed var(--line-strong);
+}
+#app[data-screen='breakdown'] .breakdown-row.head {
+  font-family: var(--font-money);
+  letter-spacing: 0.08em;
+  border-bottom: 2px solid var(--ink);
+}
+#app[data-screen='breakdown'] details.breakdown-item[open] {
+  background: var(--surface-alt);
+  border-radius: 0;
+}
+#app[data-screen='breakdown'] .breakdown-expanded-info {
+  font-family: var(--font-money);
+  font-size: 12.5px;
+  line-height: 1.8;
+  border-top: 1px dotted var(--line-strong);
+}
+#app[data-screen='breakdown'] .breakdown-expanded-info strong {
+  font-family: var(--font-stack);
+  font-weight: 600;
+}
+details.breakdown-item summary:focus-visible {
+  outline-offset: -2px;
+}
+.breakdown-row .positive {
+  color: var(--success);
+}
+.breakdown-row .negative {
+  color: var(--danger);
+}
+.payer-amount-input {
+  text-align: right;
+}
+
+/* ---------- Settlements: payer → payee flow ---------- */
+.settlement {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 16px 18px;
+  margin-bottom: 12px;
+  grid-template-columns: minmax(0, 1.2fr) 72px minmax(0, 1.2fr) auto auto;
+  transition:
+    transform var(--t-base) var(--ease),
+    border-color var(--t-base) var(--ease),
+    box-shadow var(--t-base) var(--ease);
+}
+.settlement:last-child {
+  border-bottom: 1px solid var(--line);
+}
+.settlement:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+  box-shadow: var(--shadow-md);
+}
+.settlement-payer strong,
+.settlement-payee strong {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.settlement-amount {
+  font-size: 20px;
+  text-align: right;
+}
+/* Arrow: dashed line that flows toward the payee, with a head */
+.settlement-arrow {
+  font-size: 0;
+  position: relative;
+  width: 72px;
+  height: 14px;
+  color: var(--accent);
+}
+.settlement-arrow::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 8px;
+  top: 6px;
+  height: 2px;
+  background: repeating-linear-gradient(90deg, currentColor 0 6px, transparent 6px 12px);
+  background-size: 12px 2px;
+  animation: flow-dash 1.1s linear infinite;
+}
+.settlement-arrow::after {
+  content: '';
+  position: absolute;
+  right: 1px;
+  top: 2.5px;
+  width: 9px;
+  height: 9px;
+  border-top: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  transform: rotate(45deg);
+}
+@keyframes flow-dash {
+  to {
+    background-position: 12px 0;
+  }
+}
+.pay-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* Settled state */
+#app[data-screen='settlements'] .empty {
+  border-color: var(--success-line);
+  background: var(--success-soft);
+}
+#app[data-screen='settlements'] .empty::before {
+  width: 56px;
+  height: 56px;
+  border: 0;
+  border-radius: 50%;
+  clip-path: none;
+  background: var(--success);
+  margin-bottom: 14px;
+  -webkit-mask: none;
+  mask: none;
+  display: grid;
+  place-items: center;
+  content: '✓';
+  color: var(--on-surface);
+  font-size: 30px;
+  line-height: 56px;
+  font-weight: 800;
+  animation: pop-in var(--t-slow) var(--ease-spring) both;
+}
+@keyframes pop-in {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* ---------- Banners ---------- */
+.warning,
+.success {
+  border-radius: var(--r-md);
+}
+.warning {
+  border-left: 4px solid var(--saffron);
+}
+.success {
+  border-left: 4px solid var(--success);
+}
+
+/* ---------- Toasts ---------- */
+.toast {
+  background: var(--ink);
+  color: var(--paper);
+  border-left: 4px solid var(--accent-fill);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-lg);
+}
+.toast.error {
+  background: var(--danger);
+  color: var(--on-surface);
+  border-left-color: var(--saffron-soft);
+}
+
+/* ---------- Dialogs ---------- */
+.dialog {
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+  background: var(--surface);
+}
+.dialog[open] {
+  animation: dialog-in var(--t-base) var(--ease);
+}
+.dialog[open]::backdrop {
+  background: var(--overlay);
+  backdrop-filter: none;
+  animation: fade-in var(--t-base) var(--ease);
+}
+.dialog h2 {
+  font-size: 22px;
+  letter-spacing: -0.03em;
+}
+.dialog-actions {
+  border-top: 1.5px dashed var(--line-strong);
+  padding-top: 18px;
+}
+.qr-dialog-body {
+  padding: 8px 0 14px;
+}
+.qr-container-large {
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  box-shadow: var(--shadow-sm);
+}
+.choice-list,
+.split-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 8px 0 4px;
+}
+.choice-list .button,
+.split-options .button {
+  justify-content: flex-start;
+}
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ---------- Claim screen (inline-styled in app.js; kept light: no animation) ---------- */
+.panel[style*='background:var(--accent)'] {
+  background: var(--claim-bg) !important;
+  color: var(--claim-fg);
+  border-radius: var(--r-lg);
+}
+.panel[style*='background:var(--accent)'] h1 {
+  color: var(--claim-fg) !important;
+  font-family: var(--font-display);
+}
+.panel[style*='background:var(--accent)'] p {
+  color: var(--claim-sub) !important;
+}
+.list-row input[type='checkbox'] {
+  accent-color: var(--accent-fill);
+  width: 20px !important;
+  height: 20px;
+}
+
+.file-protocol-warning {
+  border: 2px dashed var(--accent);
+}
+.terminal-cmd,
+.terminal-link a {
+  color: var(--accent);
+}
+
+/* ---------- View change: staggered reveal (class toggled by advanced.js, only on real view changes) ---------- */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+#app.view-enter > * {
+  animation: rise var(--t-slow) var(--ease) both;
+}
+#app.view-enter > :nth-child(2) {
+  animation-delay: 50ms;
+}
+#app.view-enter > :nth-child(3) {
+  animation-delay: 100ms;
+}
+#app.view-enter > :nth-child(4) {
+  animation-delay: 150ms;
+}
+#app.view-enter > :nth-child(5) {
+  animation-delay: 200ms;
+}
+#app.view-enter > :nth-child(n + 6) {
+  animation-delay: 250ms;
+}
+#app[data-screen='claim'].view-enter > * {
+  animation: none;
+}

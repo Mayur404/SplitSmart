@@ -1,0 +1,483 @@
+/* ---------- Base typography ---------- */
+html {
+  font-size: 15px;
+  font-feature-settings: 'cv11', 'ss01';
+}
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+::selection {
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Every ₹ figure: monospaced, tabular, easy to scan */
+.amount,
+.item-total-display,
+.settlement-amount,
+.payer-amount-input,
+.total-line strong {
+  font-family: var(--font-money);
+  font-variant-numeric: tabular-nums slashed-zero;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+/* Page background: restrained dot grid */
+body,
+.main {
+  background-color: var(--paper);
+}
+.main {
+  background-image: radial-gradient(var(--dot) 1px, transparent 1.2px);
+  background-size: 22px 22px;
+}
+
+/* ---------- Shell ---------- */
+.sidebar {
+  background: var(--surface);
+  border-right: 1px solid var(--line);
+  transition: transform var(--t-base) var(--ease);
+}
+.brand {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 21px;
+  letter-spacing: -0.03em;
+}
+.brand-mark {
+  background: var(--accent-fill);
+  color: var(--on-accent);
+  border-radius: 10px;
+  box-shadow: 0 2px 0 var(--key-shadow);
+}
+.brand-light {
+  font-weight: 400;
+}
+
+.nav {
+  position: relative;
+  gap: 4px;
+}
+.nav-link {
+  position: relative;
+  z-index: 1;
+  border-radius: var(--r-md);
+  font-weight: 550;
+  transition:
+    color var(--t-fast) var(--ease),
+    background-color var(--t-fast) var(--ease);
+}
+.nav-link:hover {
+  background: color-mix(in srgb, var(--surface-alt) 70%, transparent);
+}
+.nav-link.active {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+/* Sliding indicator (managed by the advanced motion module) takes over the active highlight */
+.nav.has-indicator .nav-link.active {
+  background: transparent;
+}
+.nav-indicator {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: var(--accent-soft);
+  border-radius: var(--r-md);
+  box-shadow: inset 3px 0 0 var(--accent);
+  transform: translateY(0);
+  opacity: 0;
+  transition:
+    transform var(--t-base) var(--ease),
+    height var(--t-base) var(--ease),
+    opacity var(--t-fast) var(--ease);
+}
+.nav-indicator.ready {
+  opacity: 1;
+}
+.privacy-badge .status-dot {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 22%, transparent);
+}
+
+.topbar {
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  border-bottom: 1px solid var(--line);
+}
+.breadcrumb {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.icon-button {
+  transition:
+    background-color var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease);
+}
+.hamburger,
+.hamburger::before,
+.hamburger::after {
+  background-color: var(--ink);
+}
+
+/* ---------- Flow progress (rendered and navigated by React) ---------- */
+.flow-bar {
+  max-width: 1160px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 20px 36px 0;
+}
+.flow-bar[hidden] {
+  display: none;
+}
+.flow-steps {
+  list-style: none;
+  display: flex;
+  gap: 0;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  counter-reset: step;
+}
+.flow-steps li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  flex: 0 0 auto;
+}
+.flow-steps li + li::before {
+  content: '';
+  width: clamp(20px, 6vw, 64px);
+  height: 2px;
+  margin: 0 12px;
+  background: var(--line-strong);
+  border-radius: 2px;
+  transition: background-color var(--t-base) var(--ease);
+}
+.flow-steps li.done + li::before,
+.flow-steps li.done + li.current::before {
+  background: var(--accent);
+}
+.flow-dot {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-money);
+  font-size: 12px;
+  font-weight: 600;
+  border: 2px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--muted);
+  transition:
+    background-color var(--t-base) var(--ease),
+    border-color var(--t-base) var(--ease),
+    color var(--t-base) var(--ease),
+    transform var(--t-base) var(--ease-spring);
+}
+.flow-steps li.done .flow-dot {
+  background: var(--accent-fill);
+  border-color: var(--accent-fill);
+  color: var(--on-accent);
+}
+.flow-steps li.current {
+  color: var(--ink);
+}
+.flow-steps li.current .flow-dot {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+  transform: scale(1.08);
+}
+
+/* ---------- Page structure ---------- */
+.content {
+  padding-top: 24px;
+}
+.page-head h1 {
+  font-size: var(--fs-2xl);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.08;
+}
+.page-head p {
+  font-size: 14.5px;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+  transition:
+    border-color var(--t-base) var(--ease),
+    box-shadow var(--t-base) var(--ease);
+}
+.panel h2,
+.section-head h2 {
+  font-size: 19px;
+  letter-spacing: -0.02em;
+}
+.divider {
+  border-top: 1px dashed var(--line-strong);
+}
+
+/* Hero: flat paper card, no gradient */
+.hero {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+}
+.hero h2 {
+  font-size: 26px;
+  letter-spacing: -0.03em;
+}
+
+/* ---------- Buttons: physical "key" press ---------- */
+.button {
+  border-radius: var(--r-md);
+  font-weight: 650;
+  transition:
+    transform var(--t-fast) var(--ease),
+    box-shadow var(--t-fast) var(--ease),
+    background-color var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease);
+}
+.button:hover {
+  transform: translateY(-1px);
+}
+.button:active {
+  transform: translateY(1px) scale(0.985);
+}
+.button-primary {
+  background: var(--accent-fill);
+  color: var(--on-accent);
+  box-shadow: 0 2px 0 var(--key-shadow);
+}
+.button-primary:hover {
+  background: var(--accent-hover);
+  color: var(--on-accent);
+  box-shadow: 0 3px 0 var(--key-shadow);
+}
+.button-primary:active {
+  box-shadow: 0 0 0 var(--key-shadow);
+}
+.button-secondary {
+  background: var(--surface);
+  border-color: var(--line-strong);
+  box-shadow: 0 1px 0 var(--line-strong);
+}
+.button-secondary:hover {
+  background: var(--surface-alt);
+  border-color: var(--muted);
+}
+.button-secondary:active {
+  box-shadow: none;
+}
+.button-danger {
+  background: var(--danger);
+  color: var(--on-surface);
+  box-shadow: 0 2px 0 var(--danger-hover);
+}
+.button-quiet {
+  color: var(--accent);
+}
+.button-quiet:hover {
+  background: var(--accent-soft);
+  transform: none;
+}
+.button:disabled {
+  box-shadow: none;
+}
+
+/* ---------- Forms ---------- */
+input,
+select,
+textarea {
+  background: var(--surface);
+  border-radius: var(--r-md);
+}
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  outline: none;
+}
+label {
+  font-weight: 600;
+}
+.item-entry {
+  border-bottom: 1px dashed var(--line-strong);
+}
+.item-total-display {
+  background: var(--surface-alt);
+  border: 1px dashed var(--line-strong);
+}
+.total-line {
+  border-bottom: 1px dotted var(--line-strong);
+}
+.total-line.grand {
+  border-top: 2px solid var(--ink);
+  border-bottom: 0;
+  font-family: var(--font-display);
+  font-size: 20px;
+}
+.total-line.grand .amount {
+  font-size: 24px;
+}
+.receipt-picker {
+  border: 1.5px dashed var(--line-strong);
+  border-radius: var(--r-md);
+  background: var(--surface-alt);
+  padding: 14px;
+}
+
+/* ---------- Lists, pills ---------- */
+.list-row {
+  border-radius: var(--r-md);
+  transition: background-color var(--t-fast) var(--ease);
+}
+.list-row:hover {
+  background: color-mix(in srgb, var(--surface-alt) 60%, transparent);
+}
+.member-initial {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-family: var(--font-display);
+  font-weight: 800;
+}
+.pill {
+  font-weight: 600;
+  border: 1px solid var(--line);
+  background: var(--surface-alt);
+}
+.pill-veg {
+  border-color: var(--success-line);
+}
+.pill-non-veg {
+  border: 1px solid var(--danger);
+}
+
+/* Empty states: dashed paper card with a receipt glyph */
+.empty {
+  border: 1.5px dashed var(--line-strong);
+  background: var(--surface-alt);
+  border-radius: var(--r-lg);
+}
+.empty h3 {
+  font-size: 19px;
+}
+.empty::before {
+  content: '';
+  display: block;
+  width: 34px;
+  height: 44px;
+  margin: 0 auto 14px;
+  border: 2px solid var(--line-strong);
+  border-radius: 3px 3px 0 0;
+  position: relative;
+  background:
+    linear-gradient(var(--line-strong), var(--line-strong)) 6px 10px / 22px 2px no-repeat,
+    linear-gradient(var(--line-strong), var(--line-strong)) 6px 18px / 16px 2px no-repeat,
+    linear-gradient(var(--line-strong), var(--line-strong)) 6px 26px / 20px 2px no-repeat;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 83% 92%, 66% 100%, 50% 92%, 33% 100%, 16% 92%, 0 100%);
+}
+
+/* ---------- Tabs (JS uses .tabs/.tab; base had no rules) ---------- */
+.tabs {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-full);
+  background: var(--surface-alt);
+}
+.tab {
+  border: 0;
+  background: transparent;
+  color: var(--ink-secondary);
+  padding: 6px 14px;
+  border-radius: var(--r-full);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease),
+    box-shadow var(--t-fast) var(--ease);
+}
+.tab:hover {
+  color: var(--ink);
+}
+.tab.active {
+  background: var(--accent-fill);
+  color: var(--on-accent);
+  box-shadow: 0 1px 0 var(--key-shadow);
+}
+
+/* ---------- Chips: selection feedback ---------- */
+.chip {
+  border-radius: var(--r-full);
+  font-weight: 600;
+  transition:
+    transform var(--t-fast) var(--ease),
+    background-color var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease),
+    box-shadow var(--t-fast) var(--ease);
+}
+.chip:hover {
+  transform: translateY(-1px);
+  border-color: var(--accent);
+  box-shadow: 0 2px 0 var(--line-strong);
+}
+.chip:active {
+  transform: scale(0.96);
+}
+.chip.selected {
+  background: var(--accent-fill);
+  color: var(--on-accent);
+  border-color: var(--accent-fill);
+  box-shadow: 0 2px 0 var(--key-shadow);
+}
+.chip.selected::before {
+  content: '✓';
+  font-size: 11px;
+  font-weight: 800;
+}
+.chip.dragging {
+  opacity: 0.45;
+  transform: rotate(-2deg);
+}
+.assignment-item {
+  border-bottom: 1px dashed var(--line-strong);
+}
+.assignment-item.drop-target {
+  background: var(--accent-soft);
+  border: 2px dashed var(--accent);
+  border-radius: var(--r-md);
+}

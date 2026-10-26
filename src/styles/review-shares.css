@@ -1,0 +1,47 @@
+/* Review Shares CTA — uses the same warm paper, receipt rules and ink palette as billing. */
+.review-shares-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-top: 22px;
+  padding: 22px 24px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-lg);
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+.review-shares-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 4px;
+  background: var(--accent);
+}
+.review-shares-card h2 {
+  margin-bottom: 5px;
+}
+.review-shares-card p {
+  max-width: 620px;
+  margin: 0;
+  font-size: 13px;
+}
+.billing-theme-card {
+  background: var(--surface) !important;
+  border-color: var(--line-strong) !important;
+  color: var(--ink);
+  box-shadow: var(--shadow-md);
+}
+@media (max-width: 640px) {
+  .review-shares-card {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 18px;
+  }
+  .review-shares-card > .button {
+    width: 100%;
+  }
+}

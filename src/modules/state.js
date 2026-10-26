@@ -6,7 +6,7 @@
 const STORAGE_KEYS = {
   settings: 'splitsmart:v1:settings',
   rosters: 'splitsmart:v1:rosters',
-  recent: 'splitsmart:v1:recent'
+  recent: 'splitsmart:v1:recent',
 };
 
 // In-memory fallback if localStorage is disabled, throws QuotaExceededError, or in private browsing
@@ -76,10 +76,13 @@ export function sanitizeMember(raw, index = 1) {
   const tag = dietaryTags.includes(raw.dietaryTag) ? raw.dietaryTag : 'ANY';
   return {
     id: typeof raw.id === 'string' && raw.id ? raw.id : uid('person'),
-    name: typeof raw.name === 'string' && raw.name.trim() ? raw.name.trim().slice(0, 60) : `Person ${index}`,
+    name:
+      typeof raw.name === 'string' && raw.name.trim()
+        ? raw.name.trim().slice(0, 60)
+        : `Person ${index}`,
     upiId: typeof raw.upiId === 'string' ? raw.upiId.trim().slice(0, 120) : '',
     dietaryTag: tag,
-    example: !!raw.example
+    example: !!raw.example,
   };
 }
 
@@ -96,7 +99,7 @@ export function templates() {
     name,
     upiId: upi,
     dietaryTag: diet,
-    example: true
+    example: true,
   });
 
   return [
@@ -107,8 +110,8 @@ export function templates() {
         makeExample('Aman', 'aman@okhdfcbank', 'ANY'),
         makeExample('Sneha', 'sneha@icici', 'VEG'),
         makeExample('Rahul', 'rahul@oksbi', 'NON-VEG'),
-        makeExample('Pooja', 'pooja@axl', 'VEG')
-      ]
+        makeExample('Pooja', 'pooja@axl', 'VEG'),
+      ],
     },
     {
       id: uid('tpl'),
@@ -119,8 +122,8 @@ export function templates() {
         makeExample('Karan', 'karan@okhdfcbank', 'NON-VEG'),
         makeExample('Rhea', 'rhea@axl', 'ANY'),
         makeExample('Dev', 'dev@icici', 'VEG'),
-        makeExample('Meera', 'meera@okaxis', 'NON-VEG')
-      ]
+        makeExample('Meera', 'meera@okaxis', 'NON-VEG'),
+      ],
     },
     {
       id: uid('tpl'),
@@ -130,9 +133,9 @@ export function templates() {
         name: `Student ${i + 1}`,
         upiId: '',
         dietaryTag: i % 3 === 0 ? 'VEG' : i % 3 === 1 ? 'NON-VEG' : 'ANY',
-        example: true
-      }))
-    }
+        example: true,
+      })),
+    },
   ];
 }
 
@@ -149,8 +152,8 @@ export function freshRoster(name = 'New group', count = 0) {
       name: `Person ${i + 1}`,
       upiId: '',
       dietaryTag: 'ANY',
-      example: true
-    }))
+      example: true,
+    })),
   };
 }
 
@@ -167,41 +170,45 @@ export function getRosters() {
   }
 
   return raw
-    .filter(g => g && typeof g.id === 'string' && typeof g.name === 'string' && Array.isArray(g.members))
-    .map(g => ({
+    .filter(
+      (g) =>
+        g && typeof g.id === 'string' && typeof g.name === 'string' && Array.isArray(g.members),
+    )
+    .map((g) => ({
       id: g.id,
       name: g.name.slice(0, 80),
       primaryPayerId: typeof g.primaryPayerId === 'string' ? g.primaryPayerId : null,
-      members: g.members.slice(0, 30).map((m, i) => sanitizeMember(m, i + 1))
+      members: g.members.slice(0, 30).map((m, i) => sanitizeMember(m, i + 1)),
     }));
 }
 
 export function saveRosters(rosters) {
-  const clean = rosters.map(g => ({
+  const clean = rosters.map((g) => ({
     id: g.id,
     name: g.name.trim().slice(0, 80),
     primaryPayerId: g.primaryPayerId || null,
-    members: g.members.slice(0, 30).map((m, i) => ({
+    members: g.members.slice(0, 30).map((m) => ({
       id: m.id,
       name: m.name.trim().slice(0, 60),
       upiId: (m.upiId || '').trim().slice(0, 120),
       dietaryTag: ['VEG', 'NON-VEG', 'ANY'].includes(m.dietaryTag) ? m.dietaryTag : 'ANY',
-      example: !!m.example
-    }))
+      example: !!m.example,
+    })),
   }));
   return write('rosters', clean);
 }
 
 /**
- * User settings (API key, persistence preference, model, and UPI warning threshold).
+ * User Settings (API key, saveKey toggle, selected model, warning threshold).
  */
 export function getSettings() {
   const s = read('settings', {});
   return {
     apiKey: typeof s?.apiKey === 'string' ? s.apiKey : '',
     saveKey: !!s?.saveKey,
-    selectedModel: typeof s?.selectedModel === 'string' && s.selectedModel ? s.selectedModel : 'auto',
-    upiThresholdPaise: Number.isInteger(s?.upiThresholdPaise) ? s.upiThresholdPaise : 200000 // ₹2,000
+    selectedModel:
+      typeof s?.selectedModel === 'string' && s.selectedModel ? s.selectedModel : 'auto',
+    upiThresholdPaise: Number.isInteger(s?.upiThresholdPaise) ? s.upiThresholdPaise : 200000, // ₹2,000
   };
 }
 
@@ -209,8 +216,13 @@ export function saveSettings(settings) {
   const clean = {
     apiKey: settings.saveKey && typeof settings.apiKey === 'string' ? settings.apiKey : '',
     saveKey: !!settings.saveKey,
-    selectedModel: typeof settings.selectedModel === 'string' && settings.selectedModel ? settings.selectedModel : 'auto',
-    upiThresholdPaise: Number.isInteger(settings.upiThresholdPaise) ? settings.upiThresholdPaise : 200000
+    selectedModel:
+      typeof settings.selectedModel === 'string' && settings.selectedModel
+        ? settings.selectedModel
+        : 'auto',
+    upiThresholdPaise: Number.isInteger(settings.upiThresholdPaise)
+      ? settings.upiThresholdPaise
+      : 200000,
   };
   return write('settings', clean);
 }
@@ -222,7 +234,13 @@ export function getRecent() {
   const raw = read('recent', []);
   if (!Array.isArray(raw)) return [];
   return raw
-    .filter(r => r && typeof r.id === 'string' && typeof r.restaurantName === 'string' && Number.isInteger(r.totalPaise))
+    .filter(
+      (r) =>
+        r &&
+        typeof r.id === 'string' &&
+        typeof r.restaurantName === 'string' &&
+        Number.isInteger(r.totalPaise),
+    )
     .slice(0, 5);
 }
 
@@ -240,8 +258,8 @@ export function exportBackup() {
     exportDate: new Date().toISOString(),
     rosters: getRosters(),
     settings: {
-      upiThresholdPaise: getSettings().upiThresholdPaise
-    }
+      upiThresholdPaise: getSettings().upiThresholdPaise,
+    },
   };
 }
 
@@ -253,11 +271,16 @@ export function validateBackup(data) {
   if (data.version !== 1) return false;
   if (!Array.isArray(data.rosters) || data.rosters.length > 50) return false;
 
-  return data.rosters.every(g => {
+  return data.rosters.every((g) => {
     if (!g || typeof g.name !== 'string' || !g.name.trim()) return false;
     if (!Array.isArray(g.members) || g.members.length > 30) return false;
-    return g.members.every(m => {
-      return m && typeof m.name === 'string' && m.name.trim() && ['VEG', 'NON-VEG', 'ANY'].includes(m.dietaryTag);
+    return g.members.every((m) => {
+      return (
+        m &&
+        typeof m.name === 'string' &&
+        m.name.trim() &&
+        ['VEG', 'NON-VEG', 'ANY'].includes(m.dietaryTag)
+      );
     });
   });
 }
@@ -269,11 +292,11 @@ export function importBackup(data) {
   if (!validateBackup(data)) {
     throw new Error('This backup file is invalid, corrupted, or from an unsupported version.');
   }
-  const clean = data.rosters.map(g => ({
+  const clean = data.rosters.map((g) => ({
     id: uid('group'),
     name: g.name.trim().slice(0, 80),
     primaryPayerId: null,
-    members: g.members.slice(0, 30).map((m, i) => sanitizeMember(m, i + 1))
+    members: g.members.slice(0, 30).map((m, i) => sanitizeMember(m, i + 1)),
   }));
   saveRosters(clean);
   return clean;

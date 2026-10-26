@@ -17,7 +17,9 @@ export function toPaise(value) {
     if (!Number.isFinite(value)) return 0;
     return Math.round(value * 100);
   }
-  const clean = String(value).replace(/[^0-9.-]/g, '').trim();
+  const clean = String(value)
+    .replace(/[^0-9.-]/g, '')
+    .trim();
   if (!clean || clean === '-' || clean === '.') return 0;
   const num = Number(clean);
   if (!Number.isFinite(num)) return 0;
@@ -66,7 +68,7 @@ export function allocateLargestRemainder(total, weights) {
   const tot = Math.trunc(Number(total) || 0);
   if (!tot) return weights.map(() => 0);
 
-  const posWeights = weights.map(w => Math.max(0, Math.trunc(Number(w) || 0)));
+  const posWeights = weights.map((w) => Math.max(0, Math.trunc(Number(w) || 0)));
   const weightSum = posWeights.reduce((a, b) => a + b, 0);
 
   // If weights sum to 0, distribute equally across all slots
@@ -90,7 +92,7 @@ export function allocateLargestRemainder(total, weights) {
     return {
       index: i,
       value: val,
-      remainder: exact - val
+      remainder: exact - val,
     };
   });
 
@@ -110,7 +112,7 @@ export function allocateLargestRemainder(total, weights) {
     parts[target.index].value += 1;
   }
 
-  return parts.map(p => p.value * sign);
+  return parts.map((p) => p.value * sign);
 }
 
 /**
@@ -137,7 +139,7 @@ export function unrollItem(item) {
       unitPaise: itemPaise,
       totalPaise: itemPaise,
       assignments: [...(item.assignments || [])],
-      unrolledFrom: item.id
+      unrolledFrom: item.id,
     };
   });
 }
@@ -147,7 +149,7 @@ export function unrollItem(item) {
  */
 export function undoUnrollItem(items, originalItem) {
   const unrolledPrefix = `${originalItem.id}-u`;
-  const filtered = items.filter(i => !i.id.startsWith(unrolledPrefix));
+  const filtered = items.filter((i) => !i.id.startsWith(unrolledPrefix));
   return [...filtered, originalItem];
 }
 
@@ -161,17 +163,25 @@ export function undoUnrollItem(items, originalItem) {
  *
  * Invariant: Sum of participant shares === Grand Total in paise.
  */
-export function calculateShares(items, members, tax = { cgst: 0, sgst: 0, serviceCharge: 0 }, discount = 0) {
+export function calculateShares(
+  items,
+  members,
+  tax = { cgst: 0, sgst: 0, serviceCharge: 0 },
+  discount = 0,
+) {
   const memberCount = members.length;
   const foodPaise = new Array(memberCount).fill(0);
   const memberIndexMap = new Map(members.map((m, idx) => [m.id, idx]));
 
   // 1. Allocate each item's totalPaise equally among its assigned members
   for (const item of items) {
-    const assignedIds = [...new Set(item.assignments || [])].filter(id => memberIndexMap.has(id));
+    const assignedIds = [...new Set(item.assignments || [])].filter((id) => memberIndexMap.has(id));
     if (assignedIds.length > 0) {
       const itemCost = Math.trunc(Number(item.totalPaise) || 0);
-      const splitShares = allocateLargestRemainder(itemCost, assignedIds.map(() => 1));
+      const splitShares = allocateLargestRemainder(
+        itemCost,
+        assignedIds.map(() => 1),
+      );
       assignedIds.forEach((id, j) => {
         const idx = memberIndexMap.get(id);
         foodPaise[idx] += splitShares[j];
@@ -205,7 +215,7 @@ export function calculateShares(items, members, tax = { cgst: 0, sgst: 0, servic
       name: m.name,
       foodPaise: fPaise,
       taxDiscountPaise: adjPaise,
-      sharePaise
+      sharePaise,
     };
   });
 }
@@ -229,7 +239,7 @@ export function netBalances(shares, payers) {
       name: s.name,
       sharePaise: Math.trunc(Number(s.sharePaise) || 0),
       paidPaise: 0,
-      balancePaise: -Math.trunc(Number(s.sharePaise) || 0)
+      balancePaise: -Math.trunc(Number(s.sharePaise) || 0),
     });
   }
 
@@ -245,7 +255,7 @@ export function netBalances(shares, payers) {
         name: p.name || 'Participant',
         sharePaise: 0,
         paidPaise: amt,
-        balancePaise: amt
+        balancePaise: amt,
       });
     }
   }
@@ -273,16 +283,16 @@ export function minimumCashFlow(balances) {
     id: x.id,
     name: x.name,
     balance: Math.trunc(x.balancePaise || 0),
-    originalIndex: idx
+    originalIndex: idx,
   }));
 
   // Debtors have negative balance (< 0). Creditors have positive balance (> 0).
   const debtors = rows
-    .filter(x => x.balance < 0)
+    .filter((x) => x.balance < 0)
     .sort((a, b) => a.balance - b.balance || a.originalIndex - b.originalIndex); // Most negative first
 
   const creditors = rows
-    .filter(x => x.balance > 0)
+    .filter((x) => x.balance > 0)
     .sort((a, b) => b.balance - a.balance || a.originalIndex - b.originalIndex); // Most positive first
 
   const settlements = [];
@@ -301,7 +311,7 @@ export function minimumCashFlow(balances) {
         creditor: creditors[c].id,
         creditorName: creditors[c].name,
         amountPaise: transferAmount,
-        amountRupees: rupees(transferAmount)
+        amountRupees: rupees(transferAmount),
       });
     }
 
@@ -340,55 +350,75 @@ export function runSelfTests() {
   const unrolled = unrollItem({ id: 'naan', name: 'Butter Naan', quantity: 3, totalPaise: 100 });
   assert(unrolled.length === 3, 'unroll count');
   assert(unrolled.reduce((a, x) => a + x.totalPaise, 0) === 100, 'unroll residual sum');
-  assert(unrolled[0].totalPaise === 34 && unrolled[1].totalPaise === 33 && unrolled[2].totalPaise === 33, 'unroll residual parts');
+  assert(
+    unrolled[0].totalPaise === 34 && unrolled[1].totalPaise === 33 && unrolled[2].totalPaise === 33,
+    'unroll residual parts',
+  );
 
   // 3. Proportional tax allocation & reconciliation
   const mockItems = [
     { id: 'i1', totalPaise: 10000, assignments: ['m1', 'm2'] }, // 5000 each
-    { id: 'i2', totalPaise: 5000, assignments: ['m1'] }          // 5000 to m1
+    { id: 'i2', totalPaise: 5000, assignments: ['m1'] }, // 5000 to m1
   ];
-  const mockMembers = [{ id: 'm1', name: 'Aman' }, { id: 'm2', name: 'Bina' }];
+  const mockMembers = [
+    { id: 'm1', name: 'Aman' },
+    { id: 'm2', name: 'Bina' },
+  ];
   // Food: m1 has 10,000, m2 has 5,000. Total food = 15,000.
   // Tax: 1,500 (10%). Discount: 300. Net adjustment = 1,200.
   // m1 share of adj: 1200 * (10000/15000) = 800.
   // m2 share of adj: 1200 * (5000/15000) = 400.
   const shares = calculateShares(mockItems, mockMembers, { cgst: 750, sgst: 750 }, 300);
-  assert(shares.find(s => s.memberId === 'm1').sharePaise === 10800, 'm1 proportional share');
-  assert(shares.find(s => s.memberId === 'm2').sharePaise === 5400, 'm2 proportional share');
+  assert(shares.find((s) => s.memberId === 'm1').sharePaise === 10800, 'm1 proportional share');
+  assert(shares.find((s) => s.memberId === 'm2').sharePaise === 5400, 'm2 proportional share');
   assert(shares.reduce((a, x) => a + x.sharePaise, 0) === 16200, 'shares match grand total');
 
   // 4. Full discount edge case
-  const freeShares = calculateShares([{ id: 'z', totalPaise: 5000, assignments: ['m1'] }], mockMembers, {}, 5000);
-  assert(freeShares.find(s => s.memberId === 'm1').sharePaise === 0, 'full discount share');
+  const freeShares = calculateShares(
+    [{ id: 'z', totalPaise: 5000, assignments: ['m1'] }],
+    mockMembers,
+    {},
+    5000,
+  );
+  assert(freeShares.find((s) => s.memberId === 'm1').sharePaise === 0, 'full discount share');
 
   // 5. Multiple payers & net balances
   const balances = netBalances(
     [
       { memberId: 'a', name: 'A', sharePaise: 600 },
       { memberId: 'b', name: 'B', sharePaise: 400 },
-      { memberId: 'c', name: 'C', sharePaise: 0 }
+      { memberId: 'c', name: 'C', sharePaise: 0 },
     ],
     [
       { memberId: 'c', amountPaise: 700 },
-      { memberId: 'a', amountPaise: 300 }
-    ]
+      { memberId: 'a', amountPaise: 300 },
+    ],
   );
-  assert(balances.reduce((a, x) => a + x.balancePaise, 0) === 0, 'multiple payers balance zero sum');
+  assert(
+    balances.reduce((a, x) => a + x.balancePaise, 0) === 0,
+    'multiple payers balance zero sum',
+  );
 
   // 6. Minimum cash flow settlements
   const settlements = minimumCashFlow(balances);
   assert(settlements.length === 2, 'two transfers required');
-  assert(settlements.reduce((a, x) => a + x.amountPaise, 0) === 700, 'total settlement equals total debt');
+  assert(
+    settlements.reduce((a, x) => a + x.amountPaise, 0) === 700,
+    'total settlement equals total debt',
+  );
 
   // 7. Multiple equal debtors
   const equalDebtors = [
     { id: 'd1', name: 'D1', balancePaise: -100 },
     { id: 'd2', name: 'D2', balancePaise: -100 },
-    { id: 'c1', name: 'C1', balancePaise: 200 }
+    { id: 'c1', name: 'C1', balancePaise: 200 },
   ];
   const eqTransfers = minimumCashFlow(equalDebtors);
   assert(eqTransfers.length === 2, 'equal debtors transfers');
-  assert(eqTransfers.every(t => t.creditor === 'c1' && t.amountPaise === 100), 'equal debtors match');
+  assert(
+    eqTransfers.every((t) => t.creditor === 'c1' && t.amountPaise === 100),
+    'equal debtors match',
+  );
 
   // 8. String parsing in toPaise
   assert(toPaise('₹ 1,250.75') === 125075, 'rupee string parsing');

@@ -1,0 +1,36 @@
+.app-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 28px 36px 0;
+  padding: 18px 0 24px;
+  border-top: 1px dashed var(--line-strong);
+  color: var(--muted);
+  font-size: 12px;
+}
+.app-footer__brand {
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 800;
+}
+.app-footer__tagline {
+  margin-top: 2px;
+  color: var(--muted);
+}
+.app-footer__meta {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+@media (max-width: 640px) {
+  .app-footer {
+    align-items: flex-start;
+    flex-direction: column;
+    margin: 24px 18px 0;
+  }
+  .app-footer__meta {
+    text-align: left;
+  }
+}

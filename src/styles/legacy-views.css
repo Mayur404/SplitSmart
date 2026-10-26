@@ -1,0 +1,4 @@
+.legacy-react-root,
+.legacy-view-root {
+  display: contents;
+}

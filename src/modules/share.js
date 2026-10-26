@@ -22,8 +22,20 @@ function getBaseValue(alphabet, character) {
 
 function nativeCompress(uncompressed, bitsPerChar, getCharFromInt) {
   if (uncompressed == null) return '';
-  let i, value, context_dictionary = {}, context_dictionaryToCreate = {}, context_c = '', context_wc = '', context_w = '',
-    context_enlargeIn = 2, context_dictSize = 3, context_numBits = 2, context_data = [], context_data_val = 0, context_data_position = 0, ii;
+  let i,
+    value,
+    context_dictionary = {},
+    context_dictionaryToCreate = {},
+    context_c = '',
+    context_wc = '',
+    context_w = '',
+    context_enlargeIn = 2,
+    context_dictSize = 3,
+    context_numBits = 2,
+    context_data = [],
+    context_data_val = 0,
+    context_data_position = 0,
+    ii;
 
   for (ii = 0; ii < uncompressed.length; ii += 1) {
     context_c = uncompressed.charAt(ii);
@@ -38,7 +50,7 @@ function nativeCompress(uncompressed, bitsPerChar, getCharFromInt) {
       if (Object.prototype.hasOwnProperty.call(context_dictionaryToCreate, context_w)) {
         if (context_w.charCodeAt(0) < 256) {
           for (i = 0; i < context_numBits; i++) {
-            context_data_val = (context_data_val << 1);
+            context_data_val = context_data_val << 1;
             if (context_data_position == bitsPerChar - 1) {
               context_data_position = 0;
               context_data.push(getCharFromInt(context_data_val));
@@ -119,7 +131,7 @@ function nativeCompress(uncompressed, bitsPerChar, getCharFromInt) {
     if (Object.prototype.hasOwnProperty.call(context_dictionaryToCreate, context_w)) {
       if (context_w.charCodeAt(0) < 256) {
         for (i = 0; i < context_numBits; i++) {
-          context_data_val = (context_data_val << 1);
+          context_data_val = context_data_val << 1;
           if (context_data_position == bitsPerChar - 1) {
             context_data_position = 0;
             context_data.push(getCharFromInt(context_data_val));
@@ -207,7 +219,7 @@ function nativeCompress(uncompressed, bitsPerChar, getCharFromInt) {
   }
 
   while (true) {
-    context_data_val = (context_data_val << 1);
+    context_data_val = context_data_val << 1;
     if (context_data_position == bitsPerChar - 1) {
       context_data.push(getCharFromInt(context_data_val));
       break;
@@ -217,8 +229,19 @@ function nativeCompress(uncompressed, bitsPerChar, getCharFromInt) {
 }
 
 function nativeDecompress(length, resetValue, getNextValue) {
-  let dictionary = [], next, enlargeIn = 4, dictSize = 4, numBits = 3, entry = '', result = [],
-    i, w, bits, resb, maxpower, power, c,
+  let dictionary = [],
+    enlargeIn = 4,
+    dictSize = 4,
+    numBits = 3,
+    entry = '',
+    result = [],
+    i,
+    w,
+    bits,
+    resb,
+    maxpower,
+    power,
+    c,
     data = { val: getNextValue(0), position: resetValue, index: 1 };
 
   for (i = 0; i < 3; i += 1) {
@@ -239,7 +262,7 @@ function nativeDecompress(length, resetValue, getNextValue) {
     power <<= 1;
   }
 
-  switch (next = bits) {
+  switch (bits) {
     case 0:
       bits = 0;
       maxpower = Math.pow(2, 8);
@@ -297,7 +320,7 @@ function nativeDecompress(length, resetValue, getNextValue) {
       power <<= 1;
     }
 
-    switch (c = bits) {
+    switch ((c = bits)) {
       case 0:
         bits = 0;
         maxpower = Math.pow(2, 8);
@@ -367,14 +390,18 @@ function nativeDecompress(length, resetValue, getNextValue) {
 
 function nativeCompressToEncodedURIComponent(input) {
   if (input == null) return '';
-  return nativeCompress(input, 6, function(a) { return keyStrUriSafe.charAt(a); });
+  return nativeCompress(input, 6, function (a) {
+    return keyStrUriSafe.charAt(a);
+  });
 }
 
 function nativeDecompressFromEncodedURIComponent(input) {
   if (input == null) return '';
   if (input === '') return null;
   input = input.replace(/ /g, '+');
-  return nativeDecompress(input.length, 32, function(index) { return getBaseValue(keyStrUriSafe, input.charAt(index)); });
+  return nativeDecompress(input.length, 32, function (index) {
+    return getBaseValue(keyStrUriSafe, input.charAt(index));
+  });
 }
 
 /**
@@ -387,13 +414,15 @@ export function makeSharePayload(session, members, items) {
     sessionId: String(session.id || 'outing'),
     outing: String(session.restaurantName || 'Shared Outing').slice(0, 80),
     date: String(session.date || '').slice(0, 10),
-    participants: members.map(m => String(m.name).trim().slice(0, 60)),
-    items: items.map(item => ({
+    participants: members.map((m) => String(m.name).trim().slice(0, 60)),
+    items: items.map((item) => ({
       id: String(item.id),
-      name: String(item.name || 'Item').trim().slice(0, 80),
+      name: String(item.name || 'Item')
+        .trim()
+        .slice(0, 80),
       quantity: Math.max(1, Number(item.quantity) || 1),
-      costPaise: Math.trunc(Number(item.totalPaise) || 0)
-    }))
+      costPaise: Math.trunc(Number(item.totalPaise) || 0),
+    })),
   };
 }
 
@@ -404,9 +433,10 @@ export function encodeShare(payload) {
   const json = JSON.stringify(payload);
 
   // Use window.LZString if available; otherwise use our built-in native compressor
-  const compressFn = (typeof window !== 'undefined' && window.LZString?.compressToEncodedURIComponent)
-    ? window.LZString.compressToEncodedURIComponent
-    : nativeCompressToEncodedURIComponent;
+  const compressFn =
+    typeof window !== 'undefined' && window.LZString?.compressToEncodedURIComponent
+      ? window.LZString.compressToEncodedURIComponent
+      : nativeCompressToEncodedURIComponent;
 
   let compressed;
   try {
@@ -417,11 +447,15 @@ export function encodeShare(payload) {
 
   // URLs longer than ~6000 characters may be truncated by messaging apps or browsers
   if (compressed && compressed.length > 6000) {
-    throw new Error('This bill has too many items to fit in a single share link. Consider splitting into multiple bills.');
+    throw new Error(
+      'This bill has too many items to fit in a single share link. Consider splitting into multiple bills.',
+    );
   }
 
-  const origin = typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '';
-  const pathname = typeof window !== 'undefined' && window.location?.pathname ? window.location.pathname : '';
+  const origin =
+    typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '';
+  const pathname =
+    typeof window !== 'undefined' && window.location?.pathname ? window.location.pathname : '';
 
   return `${origin}${pathname}#data=${compressed}`;
 }
@@ -436,7 +470,9 @@ export function decodeShare(hash) {
     if (clean.startsWith('%23') || clean.includes('%3D') || clean.includes('%3d')) {
       try {
         clean = decodeURIComponent(clean);
-      } catch {}
+      } catch {
+        /* Keep trying alternate URL-decoding and decompression forms. */
+      }
     }
     clean = clean.replace(/^#/, '').trim();
 
@@ -454,37 +490,42 @@ export function decodeShare(hash) {
     if (rawData.includes('%')) {
       try {
         rawData = decodeURIComponent(rawData);
-      } catch {}
+      } catch {
+        /* Keep trying alternate URL-decoding and decompression forms. */
+      }
     }
 
     if (!rawData || rawData.length > 15000) {
       throw new Error('Share link data is empty or corrupted.');
     }
 
-    const decompressFn = (typeof window !== 'undefined' && window.LZString?.decompressFromEncodedURIComponent)
-      ? window.LZString.decompressFromEncodedURIComponent
-      : nativeDecompressFromEncodedURIComponent;
+    const decompressFn =
+      typeof window !== 'undefined' && window.LZString?.decompressFromEncodedURIComponent
+        ? window.LZString.decompressFromEncodedURIComponent
+        : nativeDecompressFromEncodedURIComponent;
 
     let decompressed = '';
-    const candidates = [
-      rawData,
-      rawData.replace(/ /g, '+'),
-      rawData.replace(/\s+/g, '+')
-    ];
+    const candidates = [rawData, rawData.replace(/ /g, '+'), rawData.replace(/\s+/g, '+')];
 
     for (const cand of candidates) {
       try {
         decompressed = decompressFn(cand);
         if (decompressed && decompressed.startsWith('{')) break;
-      } catch {}
+      } catch {
+        /* Keep trying alternate URL-decoding and decompression forms. */
+      }
       try {
         decompressed = nativeDecompressFromEncodedURIComponent(cand);
         if (decompressed && decompressed.startsWith('{')) break;
-      } catch {}
+      } catch {
+        /* Keep trying alternate URL-decoding and decompression forms. */
+      }
     }
 
     if (!decompressed) {
-      throw new Error('Unable to decompress bill data. The link may have been truncated by a chat app.');
+      throw new Error(
+        'Unable to decompress bill data. The link may have been truncated by a chat app.',
+      );
     }
 
     const p = JSON.parse(decompressed);
@@ -496,7 +537,11 @@ export function decodeShare(hash) {
     if (typeof p.sessionId !== 'string' || !p.sessionId) {
       throw new Error('Missing session identifier in shared link.');
     }
-    if (!Array.isArray(p.participants) || p.participants.length === 0 || p.participants.length > 30) {
+    if (
+      !Array.isArray(p.participants) ||
+      p.participants.length === 0 ||
+      p.participants.length > 30
+    ) {
       throw new Error('Participant roster is missing or exceeds limit (30).');
     }
     if (!Array.isArray(p.items) || p.items.length === 0 || p.items.length > 100) {
@@ -505,7 +550,11 @@ export function decodeShare(hash) {
 
     // Validate items
     for (const item of p.items) {
-      if (typeof item.id !== 'string' || typeof item.name !== 'string' || !Number.isInteger(item.costPaise)) {
+      if (
+        typeof item.id !== 'string' ||
+        typeof item.name !== 'string' ||
+        !Number.isInteger(item.costPaise)
+      ) {
         throw new Error('Malformed item in shared data.');
       }
     }
@@ -525,7 +574,7 @@ export function claimMessage(payload, userName, claimedItemIds) {
     version: 1,
     sessionId: payload.sessionId,
     user: String(userName).trim(),
-    itemIds: claimedItemIds
+    itemIds: claimedItemIds,
   };
   return `SPLITSMART_CLAIM:${JSON.stringify(claimData)}`;
 }
@@ -540,7 +589,9 @@ export function parseClaim(messageText, currentPayload = null, existingClaims = 
 
   const match = messageText.match(/SPLITSMART_CLAIM:(\{.*\})/);
   if (!match) {
-    throw new Error('No valid SplitSmart claim found in the pasted message. Make sure to paste the full message starting with SPLITSMART_CLAIM:');
+    throw new Error(
+      'No valid SplitSmart claim found in the pasted message. Make sure to paste the full message starting with SPLITSMART_CLAIM:',
+    );
   }
 
   let claim;
@@ -556,13 +607,18 @@ export function parseClaim(messageText, currentPayload = null, existingClaims = 
 
   if (currentPayload) {
     if (claim.sessionId !== currentPayload.sessionId) {
-      throw new Error(`This claim belongs to a different session (${claim.sessionId}) than the current bill (${currentPayload.sessionId}).`);
+      throw new Error(
+        `This claim belongs to a different session (${claim.sessionId}) than the current bill (${currentPayload.sessionId}).`,
+      );
     }
-    if (Array.isArray(currentPayload.participants) && !currentPayload.participants.includes(claim.user)) {
+    if (
+      Array.isArray(currentPayload.participants) &&
+      !currentPayload.participants.includes(claim.user)
+    ) {
       throw new Error(`Participant "${claim.user}" is not in this bill's member list.`);
     }
     if (Array.isArray(currentPayload.items)) {
-      const validIds = new Set(currentPayload.items.map(i => i.id));
+      const validIds = new Set(currentPayload.items.map((i) => i.id));
       for (const id of claim.itemIds) {
         if (!validIds.has(id)) {
           throw new Error(`Item ID "${id}" does not exist in the current bill.`);
@@ -576,7 +632,9 @@ export function parseClaim(messageText, currentPayload = null, existingClaims = 
   }
 
   // Check for duplicate claims from same user
-  const alreadyClaimed = existingClaims.some(c => c.user === claim.user && c.itemIds.some(id => claim.itemIds.includes(id)));
+  const alreadyClaimed = existingClaims.some(
+    (c) => c.user === claim.user && c.itemIds.some((id) => claim.itemIds.includes(id)),
+  );
   if (alreadyClaimed) {
     throw new Error(`A claim has already been imported for ${claim.user} with overlapping items.`);
   }

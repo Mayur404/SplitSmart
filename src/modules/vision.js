@@ -111,17 +111,57 @@ function blobToBase64(blob) {
   });
 }
 
+export const NON_BILL_IMAGE_MESSAGE =
+  "This image doesn't appear to contain a bill or receipt. Please upload a clear photo of a restaurant bill.";
+
+/** Create a recognizable error so the controller can show a specific alert. */
+function createNonBillImageError(message = NON_BILL_IMAGE_MESSAGE) {
+  const error = new Error(message);
+  error.code = 'NOT_A_BILL';
+  return error;
+}
+
 /**
  * Validate and sanitize extracted receipt data.
- * Recalculates item totals and checks for discrepancies against receipt's stated grand total.
+ * The image classifier must explicitly confirm a bill before any extracted data is used.
+ * Recalculates item totals and checks for discrepancies against the stated grand total.
  */
 export function validateReceipt(raw) {
-  if (!raw || typeof raw !== 'object') {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
     throw new Error('AI output is not a valid JSON object.');
   }
 
+  // Fail closed: never import guessed items unless the vision model identifies a bill.
+  if (raw.isBillReceipt !== true) {
+    throw createNonBillImageError(
+      typeof raw.nonBillReason === 'string' && raw.nonBillReason.trim()
+        ? `${NON_BILL_IMAGE_MESSAGE} Detected content: ${raw.nonBillReason.trim().slice(0, 160)}`
+        : NON_BILL_IMAGE_MESSAGE,
+    );
+  }
+
   if (!Array.isArray(raw.items) || raw.items.length === 0) {
-    throw new Error('No items were found on the receipt.');
+    throw createNonBillImageError(
+      'No purchased items could be identified. Please upload a clear, itemized restaurant bill.',
+    );
+  }
+
+  // A restaurant bill should contain at least one priced line item. This helps reject
+  // unrelated photos or model responses that only guess product names.
+  const hasPricedLineItem = raw.items.some((item) => {
+    if (!item || typeof item !== 'object') return false;
+    const unitPrice = Number(item.unitPrice);
+    const totalPrice = Number(item.totalPrice);
+    return (
+      (Number.isFinite(unitPrice) && unitPrice > 0) ||
+      (Number.isFinite(totalPrice) && totalPrice > 0)
+    );
+  });
+
+  if (!hasPricedLineItem) {
+    throw createNonBillImageError(
+      'No priced items could be read from this image. Please upload a clear photo of the bill.',
+    );
   }
 
   const parseMoney = (val) => {
@@ -241,11 +281,16 @@ export async function scanReceipt(file, apiKey, preferredModel = 'auto', onProgr
   const cleanKey = apiKey.trim();
   const image = await compressImage(file);
 
-  const promptText = `Analyze this restaurant bill receipt image.
-Extract the restaurant name, list of purchased food/drink items with quantity, unit price, and item total price, tax breakdown (CGST, SGST, service charge), discount, and stated grand total.
+  const promptText = `First determine whether the uploaded image actually contains a restaurant bill or receipt.
+A valid restaurant bill/receipt must show clear evidence of a purchase, such as a merchant/restaurant name and itemized purchased items with prices, or a printed subtotal/total.
+Do NOT infer or invent a bill from an unrelated photo, screenshot, menu, food photograph, blank page, identity document, or other non-bill image.
+If it is not clearly a restaurant bill/receipt, set isBillReceipt to false, explain briefly in nonBillReason, and return empty items with zero totals.
+If it is clearly a restaurant bill/receipt, set isBillReceipt to true and extract the restaurant name, purchased food/drink items with quantity, unit price, and item total price, tax breakdown (CGST, SGST, service charge), discount, and stated grand total.
 Categorize each item as "VEG", "NON-VEG", or "ANY" (for drinks, water, miscellaneous).
 Return ONLY valid raw JSON with this exact schema:
 {
+  "isBillReceipt": true,
+  "nonBillReason": "",
   "restaurantName": "Restaurant Name",
   "items": [
     {
@@ -366,7 +411,11 @@ If a tax or discount is not present, use 0. Do not include markdown ticks or exp
         validated.modelUsed = model;
         return validated;
       } catch (err) {
-        // If it's a fatal authentication or quota error, rethrow immediately
+        // A non-bill classification is definitive for this scan; do not let fallback
+        // models reinterpret an unrelated image as a receipt.
+        if (err.code === 'NOT_A_BILL') throw err;
+
+        // If it's a fatal authentication or quota error, rethrow immediately.
         if (
           err.message.includes('API key is invalid') ||
           err.message.includes('rate limit') ||
@@ -413,8 +462,10 @@ If a tax or discount is not present, use 0. Do not include markdown ticks or exp
         validated.modelUsed = model;
         return validated;
       }
-    } catch {
-      /* Try the next model in the fallback cascade. */
+    } catch (err) {
+      // Preserve the non-bill classification instead of masking it as a model error.
+      if (err?.code === 'NOT_A_BILL') throw err;
+      /* Otherwise continue with the existing fallback error handling. */
     }
 
     throw new Error(

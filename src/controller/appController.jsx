@@ -1642,7 +1642,19 @@ async function handleReceiptScan() {
       renderBill();
     }
   } catch (err) {
-    statusBox.innerHTML = `<div class="warning">⚠️ ${esc(err.message)} You can also enter items manually.</div>`;
+    const errorMessage = err?.message || 'Unable to scan this image. Please try another image.';
+
+    if (err?.code === 'NOT_A_BILL') {
+      const alertMessage = `${errorMessage} You can also enter items manually.`;
+      if (statusBox) {
+        statusBox.innerHTML = `<div class="warning" role="alert"><strong>Bill not detected.</strong> ${esc(alertMessage)}</div>`;
+      }
+      // Show a visible toast alert as well as the inline message beside the uploader.
+      toast(errorMessage, true);
+    } else if (statusBox) {
+      statusBox.innerHTML = `<div class="warning" role="alert">⚠️ ${esc(errorMessage)} You can also enter items manually.</div>`;
+      toast(errorMessage, true);
+    }
   } finally {
     btn.disabled = false;
     if (spinner) spinner.style.display = 'none';

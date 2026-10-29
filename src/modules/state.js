@@ -199,23 +199,30 @@ export function saveRosters(rosters) {
 }
 
 /**
- * User Settings (API key, saveKey toggle, selected model, warning threshold).
+ * User preferences only. Gemini credentials are read from the local .env file,
+ * never from localStorage or user-editable application settings.
  */
 export function getSettings() {
-  const s = read('settings', {});
-  return {
-    apiKey: typeof s?.apiKey === 'string' ? s.apiKey : '',
-    saveKey: !!s?.saveKey,
+  const stored = read('settings', {});
+  const clean = {
     selectedModel:
-      typeof s?.selectedModel === 'string' && s.selectedModel ? s.selectedModel : 'auto',
-    upiThresholdPaise: Number.isInteger(s?.upiThresholdPaise) ? s.upiThresholdPaise : 200000, // ₹2,000
+      typeof stored?.selectedModel === 'string' && stored.selectedModel
+        ? stored.selectedModel
+        : 'auto',
+    upiThresholdPaise: Number.isInteger(stored?.upiThresholdPaise)
+      ? stored.upiThresholdPaise
+      : 200000, // ₹2,000
   };
+
+  // One-time cleanup for older versions that stored credentials in localStorage.
+  if (stored && typeof stored === 'object' && ('apiKey' in stored || 'saveKey' in stored)) {
+    write('settings', clean);
+  }
+  return clean;
 }
 
 export function saveSettings(settings) {
   const clean = {
-    apiKey: settings.saveKey && typeof settings.apiKey === 'string' ? settings.apiKey : '',
-    saveKey: !!settings.saveKey,
     selectedModel:
       typeof settings.selectedModel === 'string' && settings.selectedModel
         ? settings.selectedModel

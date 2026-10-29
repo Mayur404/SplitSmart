@@ -1,3 +1,5 @@
+import { GEMINI_API_KEY } from '../config/env.js';
+
 /**
  * SplitSmart — vision.js
  * Client-Side Image Resizing, JPEG Compression, Multi-Model Gemini Receipt Extraction, and JSON Validation.
@@ -242,13 +244,13 @@ export function validateReceipt(raw) {
 }
 
 /**
- * Query the models.list endpoint to get all models available on this API key.
+ * Query the models.list endpoint to get all models available on the configured API key.
  */
-export async function listAvailableModels(apiKey) {
-  if (!apiKey || typeof apiKey !== 'string' || !apiKey.trim()) {
-    throw new Error('Please provide an API key.');
+export async function listAvailableModels() {
+  if (!GEMINI_API_KEY) {
+    throw new Error('Gemini is not configured. Add VITE_GEMINI_API_KEY to your .env file and restart Vite.');
   }
-  const cleanKey = apiKey.trim();
+  const cleanKey = GEMINI_API_KEY;
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(cleanKey)}`;
   const response = await fetch(endpoint);
   if (!response.ok) {
@@ -270,15 +272,15 @@ export async function listAvailableModels(apiKey) {
 /**
  * Scan receipt with automatic model fallback cascade.
  * Tries the preferred model (gemini-2.5-flash by default).
- * If Google returns 404 (model not found / restricted for this API key),
+ * If Google returns 404 (model not found / restricted for the configured API key),
  * automatically cascades through alternative models (gemini-2.0-flash, gemini-1.5-flash, etc.)
  */
-export async function scanReceipt(file, apiKey, preferredModel = 'auto', onProgress = null) {
-  if (!apiKey || typeof apiKey !== 'string' || !apiKey.trim()) {
-    throw new Error('Please configure your Gemini API key in Settings before scanning.');
+export async function scanReceipt(file, preferredModel = 'auto', onProgress = null) {
+  if (!GEMINI_API_KEY) {
+    throw new Error('Gemini is not configured. Add VITE_GEMINI_API_KEY to your .env file and restart Vite.');
   }
 
-  const cleanKey = apiKey.trim();
+  const cleanKey = GEMINI_API_KEY;
   const image = await compressImage(file);
 
   const promptText = `First determine whether the uploaded image actually contains a restaurant bill or receipt.
@@ -428,9 +430,9 @@ If a tax or discount is not present, use 0. Do not include markdown ticks or exp
     }
 
     // If all hardcoded models failed with 404, attempt dynamic model discovery
-    if (onProgress) onProgress('Discovering available models on your API key…');
+    if (onProgress) onProgress('Discovering available models on the configured API key…');
     try {
-      const available = await listAvailableModels(cleanKey);
+      const available = await listAvailableModels();
       const untried = available.filter((m) => !triedModels.includes(m));
 
       for (const model of untried) {
@@ -470,7 +472,7 @@ If a tax or discount is not present, use 0. Do not include markdown ticks or exp
 
     throw new Error(
       lastError?.message ||
-        `Gemini request failed: none of the tested models (${triedModels.slice(0, 3).join(', ')}) were accessible with this API key (HTTP 404). Please verify your Google AI Studio project settings or test your key in Settings.`,
+        `Gemini request failed: none of the tested models (${triedModels.slice(0, 3).join(', ')}) were accessible with the configured API key (HTTP 404). Please verify your Google AI Studio project settings and the local environment variable.`,
     );
   } finally {
     clearTimeout(timeoutId);

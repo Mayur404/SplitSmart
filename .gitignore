@@ -3,5 +3,6 @@ dist/*
 !dist/.gitkeep
 .env
 .env.*
+!.env.example
 .DS_Store
 coverage/

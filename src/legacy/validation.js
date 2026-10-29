@@ -122,11 +122,6 @@ function customRuleMessage(input) {
     }
   }
 
-  if (rule === 'api-key' && value) {
-    if (value.length < 20 || value.length > 200 || !/^[A-Za-z0-9_-]+$/.test(value)) {
-      return 'Enter a valid-looking API key (20–200 letters, numbers, underscores or hyphens).';
-    }
-  }
 
   if (rule === 'claimant' && !value) return 'Choose your name before generating a claim.';
   if (rule === 'category' && !['ANY', 'VEG', 'NON-VEG'].includes(value)) {

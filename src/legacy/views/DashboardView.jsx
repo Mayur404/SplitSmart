@@ -4,7 +4,7 @@
  * data-action attributes are retained for the shared event-delegation controller.
  */
 export function buildDashboardMarkup(ctx) {
-  const { recent, rosters, settings, esc, formatCurrency, renderHeader } = ctx;
+  const { recent, rosters, geminiConfigured, esc, formatCurrency, renderHeader } = ctx;
 
   const recentBills = recent.slice(0, 5);
   const rowsHtml = recentBills
@@ -103,9 +103,9 @@ export function buildDashboardMarkup(ctx) {
           <h2>Optional Gemini Scanning</h2>
           <p class="panel-intro">Scan physical receipts into item lists with Google Gemini 2.5 Flash.</p>
           <p class="quiet" style="font-size:13px;margin-bottom:12px;">
-            ${settings.apiKey ? '✓ AI scanner is configured with your API key.' : 'AI scanner is unconfigured. Manual bill entry is fully functional.'}
+            ${geminiConfigured ? '✓ AI scanner is configured through your environment.' : 'AI scanner is not configured. Manual bill entry is fully functional.'}
           </p>
-          <button class="button button-secondary button-small" data-view="settings">${settings.apiKey ? 'Manage AI Key' : 'Configure Gemini Key'}</button>
+          <button class="button button-secondary button-small" data-view="settings">Check Scanner Setup</button>
         </div>
       </aside>
     </div>

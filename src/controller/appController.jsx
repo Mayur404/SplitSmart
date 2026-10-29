@@ -1,7 +1,7 @@
 /**
- * SplitSmart legacy workflow controller (JSX edition).
- * Screen markup is isolated into focused React components under views/.
- * Existing delegated actions are retained as a compatibility boundary.
+ * SplitSmart application controller entry point.
+ * Feature behavior is composed from focused JSX controller modules under components/.
+ * This file retains app state, route rendering, and delegated event wiring.
  */
 
 import { createRoot } from 'react-dom/client';
@@ -42,16 +42,15 @@ import {
 
 import { paymentUri, renderQR, splitPayment, isValidUpiId } from '../modules/qr.js';
 
-import {
-  makeSharePayload,
-  encodeShare,
-  decodeShare,
-  claimMessage,
-  parseClaim,
-  whatsappUrl,
-} from '../modules/share.js';
+import { decodeShare } from '../modules/share.js';
 
-import { scanReceipt, listAvailableModels, CANDIDATE_MODELS } from '../modules/vision.js';
+import { scanReceipt, listAvailableModels } from '../modules/vision.js';
+import { GEMINI_API_KEY, GEMINI_CONFIGURED } from '../config/env.js';
+import { createBillingController } from './components/BillingController.jsx';
+import { createAssignmentController } from './components/AssignmentController.jsx';
+import { createReceiptController } from './components/ReceiptController.jsx';
+import { createSettlementController } from './components/SettlementController.jsx';
+import { createClaimsController } from './components/ClaimsController.jsx';
 
 import {
   installInlineValidation,
@@ -226,73 +225,7 @@ function renderBill() {
   if (typeof markup === 'string') mountLegacyView(BillView, markup);
 }
 
-function syncBillFromDom() {
-  const bill = currentBill();
-  if (!bill) return;
 
-  const restInput = $('#bill-restaurant');
-  const dateInput = $('#bill-date');
-  const notesInput = $('#bill-notes');
-  const cgstInput = $('#tax-cgst');
-  const sgstInput = $('#tax-sgst');
-  const scInput = $('#tax-sc');
-  const discInput = $('#bill-discount');
-  const statedInput = $('#stated-total');
-
-  if (restInput) bill.restaurantName = restInput.value.trim();
-  if (dateInput) bill.date = dateInput.value;
-  if (notesInput) bill.notes = notesInput.value.trim();
-  if (cgstInput) bill.tax.cgst = Number(cgstInput.value) || 0;
-  if (sgstInput) bill.tax.sgst = Number(sgstInput.value) || 0;
-  if (scInput) bill.tax.serviceCharge = Number(scInput.value) || 0;
-  if (discInput) bill.discount = Number(discInput.value) || 0;
-  if (statedInput) {
-    bill.statedTotal = statedInput.value.trim() !== '' ? Number(statedInput.value) : null;
-  }
-
-  // Sync Item Rows (only if currently on bill entry view)
-  const rows = $$('.item-entry');
-  if (rows.length > 0) {
-    bill.items = Array.from(rows).map((row, idx) => {
-      const existing = bill.items[idx] || {};
-      const name = row.querySelector('[data-field="name"]')?.value.trim() || '';
-      const quantity = Number(row.querySelector('[data-field="quantity"]')?.value) || 1;
-      const unitPrice = Number(row.querySelector('[data-field="unitPrice"]')?.value) || 0;
-      const category = row.querySelector('[data-field="category"]')?.value || 'ANY';
-      const unitPaise = toPaise(unitPrice);
-      const totalPaise = Math.round(unitPaise * quantity);
-
-      return {
-        id: existing.id || uid('item'),
-        name,
-        quantity,
-        unitPaise,
-        totalPaise,
-        category,
-        assignments: existing.assignments || [],
-      };
-    });
-  }
-}
-
-/** Validate all editable fields on the Bill screen before syncing or advancing. */
-function validateBillEntry() {
-  const root = $('#legacy-react-root');
-  const valid = validateFields(root);
-  if (!valid) {
-    toast('Please correct the highlighted bill fields before continuing.', true);
-    return false;
-  }
-
-  syncBillFromDom();
-  const bill = currentBill();
-  if (!bill || !bill.items.length) {
-    toast('Please add at least one bill item.', true);
-    return false;
-  }
-
-  return true;
-}
 
 /* ==========================================================================
    VIEW 4: ITEM ASSIGNMENT
@@ -306,6 +239,7 @@ function getViewContext() {
     recent,
     rosters,
     settings,
+    geminiConfigured: GEMINI_CONFIGURED,
     activeGroup,
     previousUnrolls,
     assignmentDietFilter,
@@ -342,178 +276,18 @@ function renderAssign() {
   }
 }
 
-function attachDragAndDrop() {
-  let draggedMemberId = null;
 
-  $$('.chip[draggable="true"]').forEach((chip) => {
-    chip.addEventListener('dragstart', (e) => {
-      draggedMemberId = chip.dataset.memberId;
-      chip.classList.add('dragging');
-      e.dataTransfer.setData('text/plain', draggedMemberId);
-      e.dataTransfer.effectAllowed = 'copy';
-    });
 
-    chip.addEventListener('dragend', () => {
-      chip.classList.remove('dragging');
-      draggedMemberId = null;
-    });
-  });
 
-  $$('.assignment-item').forEach((itemCard) => {
-    itemCard.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'copy';
-      itemCard.classList.add('drop-target');
-    });
-
-    itemCard.addEventListener('dragleave', () => {
-      itemCard.classList.remove('drop-target');
-    });
-
-    itemCard.addEventListener('drop', (e) => {
-      e.preventDefault();
-      itemCard.classList.remove('drop-target');
-      const memberId = e.dataTransfer.getData('text/plain') || draggedMemberId;
-      const itemId = itemCard.dataset.itemId;
-
-      if (memberId && itemId) {
-        toggleItemAssignment(itemId, memberId);
-      }
-    });
-  });
-}
-
-function toggleItemAssignment(itemId, memberId) {
-  const bill = currentBill();
-  if (!bill) return;
-  const item = bill.items.find((i) => i.id === itemId);
-  if (!item) return;
-
-  item.assignments = item.assignments || [];
-  if (item.assignments.includes(memberId)) {
-    item.assignments = item.assignments.filter((id) => id !== memberId);
-  } else {
-    item.assignments.push(memberId);
-  }
-  renderAssign();
-}
 
 /* ==========================================================================
    VIEW 5: INDIVIDUAL BREAKDOWN & PAYER RECORDING
    ========================================================================== */
-function computeBillShares() {
-  const bill = currentBill();
-  if (!bill) return null;
 
-  const groupMembers = members();
-  const tax = {
-    cgst: toPaise(bill.tax.cgst),
-    sgst: toPaise(bill.tax.sgst),
-    serviceCharge: toPaise(bill.tax.serviceCharge),
-  };
-  const discountPaise = toPaise(bill.discount);
-  const items = bill.items || [];
-
-  const shares = calculateShares(items, groupMembers, tax, discountPaise);
-  const foodTotal = items.reduce((a, b) => a + b.totalPaise, 0);
-  const totalTax = tax.cgst + tax.sgst + tax.serviceCharge;
-  const grandTotal = Math.max(0, foodTotal + totalTax - discountPaise);
-
-  return {
-    bill,
-    items,
-    members: groupMembers,
-    foodTotal,
-    taxTotal: totalTax,
-    discountTotal: discountPaise,
-    grandTotal,
-    shares,
-  };
-}
 
 function renderBreakdown() {
   const markup = buildBreakdownMarkup(getViewContext());
   if (typeof markup === 'string') mountLegacyView(BreakdownView, markup);
-}
-
-// Live Summary for Payer Inputs (Runs without re-rendering or stealing input focus)
-function updateLivePayerSummary() {
-  const inputs = $$('.payer-amount-input');
-  const calc = computeBillShares();
-  if (!calc || !inputs.length) return;
-
-  let totalPaise = 0;
-  inputs.forEach((inp) => {
-    totalPaise += toPaise(inp.value);
-  });
-
-  const diffPaise = calc.grandTotal - totalPaise;
-  const balanced = diffPaise === 0;
-
-  const totEl = $('#payer-total-display');
-  if (totEl) totEl.textContent = formatCurrency(totalPaise);
-
-  const msgEl = $('#payer-status-msg');
-  if (msgEl) {
-    if (balanced) {
-      msgEl.innerHTML = `
-        <div class="success" style="font-size:12.5px;padding:8px 12px;margin-top:8px;">
-          ✓ Total paid matches bill total (${formatCurrency(calc.grandTotal)}). Click "Update Calculations" to apply.
-        </div>
-      `;
-    } else {
-      msgEl.innerHTML = `
-        <div class="warning" style="font-size:12.5px;margin-top:8px;">
-          Recorded payments (${formatCurrency(totalPaise)}) must equal the bill grand total (${formatCurrency(calc.grandTotal)}). Difference: ${formatCurrency(Math.abs(diffPaise))}. Click "Update Calculations" when ready.
-        </div>
-      `;
-    }
-  }
-}
-
-// Explicit Commit for Payer Amounts (Recalculates shares and net balances)
-function applyPayerAmounts(showToast = true) {
-  const bill = currentBill();
-  const calc = computeBillShares();
-  if (!bill || !calc) return false;
-
-  const payerPanel = $('#payers-panel');
-  if (!validateFields(payerPanel)) {
-    if (showToast) toast('Please correct the highlighted payment amounts.', true);
-    return false;
-  }
-
-  const inputs = $$('.payer-amount-input');
-  if (!inputs.length) return false;
-
-  const newPayers = [];
-  let totalPaid = 0;
-
-  inputs.forEach((input) => {
-    const memberId = input.dataset.memberId;
-    const amountPaise = toPaise(input.value);
-    if (amountPaise > 0) {
-      newPayers.push({ memberId, amountPaise });
-      totalPaid += amountPaise;
-    }
-  });
-
-  const difference = calc.grandTotal - totalPaid;
-  if (difference !== 0) {
-    if (showToast) {
-      toast(
-        `Payments recorded (${formatCurrency(totalPaid)}) must equal the bill total (${formatCurrency(calc.grandTotal)}). Difference: ${formatCurrency(Math.abs(difference))}.`,
-        true,
-      );
-    }
-    updateLivePayerSummary();
-    return false;
-  }
-
-  bill.payers = newPayers;
-  if (showToast) toast('Payments updated and calculations balanced!');
-  renderBreakdown();
-  return true;
 }
 
 /* ==========================================================================
@@ -580,131 +354,7 @@ function render() {
   }
 }
 
-/* ==========================================================================
-   NATURAL LANGUAGE COMMAND PARSER (100% INLINE DETERMINISTIC)
-   ========================================================================== */
-function executeNaturalLanguageCommand(text) {
-  if (!text || !text.trim()) return;
-  const bill = currentBill();
-  if (!bill) return;
 
-  const raw = text.trim();
-  const lower = raw.toLowerCase();
-  const items = bill.items || [];
-  // Pattern 1: Clear all
-  if (lower === 'clear all' || lower === 'reset all') {
-    items.forEach((i) => (i.assignments = []));
-    toast('Cleared all item assignments.');
-    renderAssign();
-    return;
-  }
-
-  // Pattern 2: Clear item X
-  const clearMatch = lower.match(/^clear\s+(?:assignment\s+(?:for\s+)?)?(?:item\s+)?(.+)$/);
-  if (clearMatch) {
-    const targetStr = clearMatch[1].trim();
-    const itemNum = parseInt(targetStr, 10);
-    const targetItem = !isNaN(itemNum)
-      ? items[itemNum - 1]
-      : items.find((i) => i.name.toLowerCase().includes(targetStr));
-    if (targetItem) {
-      targetItem.assignments = [];
-      toast(`Cleared assignments for "${targetItem.name}".`);
-      renderAssign();
-    } else {
-      toast(`No item matching "${targetStr}" found.`, true);
-    }
-    return;
-  }
-
-  // Pattern 3: Assign / Put / Split <item> to/on/between <target>
-  const assignMatch = lower.match(/^(?:assign|put|split)\s+(.+?)\s+(?:to|on|between)\s+(.+)$/);
-  if (!assignMatch) {
-    toast(
-      'Command not recognized. Example: "Assign naan to everyone" or "Put biryani on Sneha"',
-      true,
-    );
-    return;
-  }
-
-  const itemQuery = assignMatch[1].trim();
-  const targetQuery = assignMatch[2].trim();
-
-  // Resolve item
-  let targetItem = null;
-  const itemNum = parseInt(itemQuery.replace(/^item\s+/, ''), 10);
-  if (!isNaN(itemNum) && items[itemNum - 1]) {
-    targetItem = items[itemNum - 1];
-  } else {
-    const matchingItems = items.filter((i) => i.name.toLowerCase().includes(itemQuery));
-    if (matchingItems.length === 0) {
-      toast(`No item found matching "${itemQuery}".`, true);
-      return;
-    } else if (matchingItems.length > 1) {
-      // Ambiguous item match
-      showAmbiguityDialog(
-        `Multiple items matched "${itemQuery}". Please choose one:`,
-        matchingItems.map((i) => ({ label: `${i.name} (Qty ${i.quantity})`, value: i.id })),
-        (selectedId) => {
-          const itm = items.find((i) => i.id === selectedId);
-          if (itm) applyAssignmentToItem(itm, targetQuery);
-        },
-      );
-      return;
-    }
-    targetItem = matchingItems[0];
-  }
-
-  applyAssignmentToItem(targetItem, targetQuery);
-}
-
-function applyAssignmentToItem(item, targetQuery) {
-  const groupMembers = members();
-  let assignees = [];
-
-  if (targetQuery === 'everyone' || targetQuery === 'everybody' || targetQuery === 'all') {
-    assignees = groupMembers.map((m) => m.id);
-  } else if (targetQuery === 'veg' || targetQuery === 'vegetarians') {
-    assignees = groupMembers.filter((m) => m.dietaryTag === 'VEG').map((m) => m.id);
-  } else if (targetQuery === 'non-veg' || targetQuery === 'nonveg') {
-    assignees = groupMembers.filter((m) => m.dietaryTag === 'NON-VEG').map((m) => m.id);
-  } else if (targetQuery.includes(' and ')) {
-    const names = targetQuery.split(' and ').map((s) => s.trim());
-    names.forEach((n) => {
-      const match = groupMembers.find((m) => m.name.toLowerCase().includes(n));
-      if (match) assignees.push(match.id);
-    });
-  } else {
-    const matches = groupMembers.filter((m) => m.name.toLowerCase().includes(targetQuery));
-    if (matches.length === 0) {
-      toast(`No group member found matching "${targetQuery}".`, true);
-      return;
-    } else if (matches.length > 1) {
-      showAmbiguityDialog(
-        `Multiple members matched "${targetQuery}". Select one:`,
-        matches.map((m) => ({ label: m.name, value: m.id })),
-        (selectedId) => {
-          item.assignments = [selectedId];
-          toast(`Assigned ${item.name} to ${matches.find((m) => m.id === selectedId)?.name}.`);
-          renderAssign();
-        },
-      );
-      return;
-    }
-    assignees = [matches[0].id];
-  }
-
-  if (assignees.length === 0) {
-    toast('No eligible members matched.', true);
-    return;
-  }
-
-  item.assignments = [...new Set(assignees)];
-  toast(
-    `Assigned "${item.name}" to ${assignees.map((id) => groupMembers.find((m) => m.id === id)?.name).join(', ')}.`,
-  );
-  renderAssign();
-}
 
 function showAmbiguityDialog(prompt, choices, onSelect) {
   $('#ambiguity-prompt').textContent = prompt;
@@ -722,6 +372,48 @@ function showAmbiguityDialog(prompt, choices, onSelect) {
   pendingAmbiguityAction = onSelect;
   $('#ambiguity-dialog').showModal();
 }
+
+
+/* --------------------------------------------------------------------------
+   Feature controller composition
+   -------------------------------------------------------------------------- */
+const billingController = createBillingController({
+  $, $$, currentBill, members, toPaise, uid, validateFields, toast, calculateShares,
+  formatCurrency, renderBreakdown,
+});
+const {
+  syncBillFromDom,
+  validateBillEntry,
+  computeBillShares,
+  updateLivePayerSummary,
+  applyPayerAmounts,
+  updateBillTotalsLive,
+} = billingController;
+
+const assignmentController = createAssignmentController({
+  $$, currentBill, members, renderAssign, toast, showAmbiguityDialog,
+});
+const { attachDragAndDrop, toggleItemAssignment, executeNaturalLanguageCommand } = assignmentController;
+
+const receiptController = createReceiptController({
+  $, toast, setFieldValidationError, validateFileInput,
+  geminiConfigured: GEMINI_CONFIGURED, go, settings, scanReceipt, currentBill, uid,
+  toPaise, renderBill, esc,
+});
+const { handleReceiptScan } = receiptController;
+
+const settlementController = createSettlementController({
+  $, computeBillShares, netBalances, minimumCashFlow, members, isValidUpiId,
+  paymentUri, renderQR, formatCurrency, toast, esc, splitPayment,
+});
+const { openQRModal, copyPaymentDetails, openSplitThresholdModal } = settlementController;
+
+const claimsController = createClaimsController({
+  $, $$, currentBill, members, toast, esc, validateFields, setFieldValidationError,
+  clearFieldValidation, getDecodedClaimPayload: () => decodedClaimPayload,
+  importedClaims, go,
+});
+const { shareClaimUrl, generateWhatsAppClaim, promptImportClaim } = claimsController;
 
 /* ==========================================================================
    EVENT DELEGATION AND ACTION DISPATCH
@@ -1238,76 +930,38 @@ document.addEventListener('click', async (e) => {
       break;
     }
 
-    case 'save-api-key': {
-      const keyInput = $('#gemini-key-input');
-      const saveBox = $('#save-key-checkbox');
-      const modelSelect = $('#gemini-model-select');
-      if (keyInput && !validateField(keyInput)) {
-        toast('Please correct the API key format before saving.', true);
-        return;
-      }
-      if (keyInput && saveBox) {
-        settings.apiKey = keyInput.value.trim();
-        settings.saveKey = saveBox.checked;
-        settings.selectedModel = modelSelect?.value || 'auto';
-        saveSettings(settings);
-        toast('Gemini settings updated.');
-      }
-      break;
-    }
-
-    case 'test-api-key': {
-      const keyInput = $('#gemini-key-input');
-      const key = keyInput?.value.trim() || settings.apiKey;
+    case 'test-gemini-connection': {
       const resultBox = $('#test-key-result');
-      if (keyInput && keyInput.value.trim() && !validateField(keyInput)) {
-        toast('Please correct the API key format before testing.', true);
+      if (!GEMINI_API_KEY) {
+        toast('Gemini is not configured. Add VITE_GEMINI_API_KEY to your .env file and restart Vite.', true);
+        if (resultBox) resultBox.innerHTML = '<div class="warning" role="alert">Gemini is not configured. Add <code>VITE_GEMINI_API_KEY</code> to your local .env file and restart the development server.</div>';
         return;
       }
-      if (!key) {
-        if (keyInput) {
-          setFieldValidationError(
-            keyInput,
-            'Enter an API key before testing the Gemini connection.',
-          );
-          keyInput.focus();
-        }
-        toast('Enter an API key to test.', true);
-        return;
-      }
-      if (resultBox)
-        resultBox.innerHTML = '<span class="quiet">Testing connection to Google Gemini API…</span>';
+      if (resultBox) resultBox.innerHTML = '<span class="quiet">Testing connection to Google Gemini API…</span>';
       try {
-        const available = await listAvailableModels(key);
+        const available = await listAvailableModels();
         if (resultBox) {
-          resultBox.innerHTML = `
-            <div class="success">
-              ✓ <strong>Valid API Key!</strong> Connection to Gemini API succeeded.<br>
-              <span class="quiet" style="font-size:12px;">Available models on your account: ${available
-                .slice(0, 6)
-                .map((m) => `<code>${esc(m)}</code>`)
-                .join(', ')}${available.length > 6 ? ` (+${available.length - 6} more)` : ''}</span>
-            </div>
-          `;
+          resultBox.innerHTML = 
+            '<div class="success">✓ <strong>Gemini connection succeeded.</strong><br>' +
+            '<span class="quiet" style="font-size:12px;">Available models: ' +
+            available.slice(0, 6).map((model) => '<code>' + esc(model) + '</code>').join(', ') +
+            (available.length > 6 ? ' (+' + (available.length - 6) + ' more)' : '') +
+            '</span></div>';
         }
       } catch (err) {
-        if (resultBox) {
-          resultBox.innerHTML = `
-            <div class="warning">
-              ✗ <strong>Connection failed:</strong> ${esc(err.message)}
-            </div>
-          `;
-        }
+        if (resultBox) resultBox.innerHTML = '<div class="warning" role="alert">Connection failed: ' + esc(err.message) + '</div>';
+        toast(err.message || 'Gemini connection failed.', true);
       }
       break;
     }
 
-    case 'clear-api-key': {
-      settings.apiKey = '';
-      settings.saveKey = false;
-      saveSettings(settings);
-      toast('Saved Gemini API key removed.');
-      renderSettings();
+    case 'save-model-preference': {
+      const modelSelect = $('#gemini-model-select');
+      if (modelSelect && validateField(modelSelect)) {
+        settings.selectedModel = modelSelect.value || 'auto';
+        saveSettings(settings);
+        toast('Receipt scanner model preference saved.');
+      }
       break;
     }
 
@@ -1461,6 +1115,12 @@ $('#member-form')?.addEventListener('submit', (e) => {
 
 // Primary Payer Selection from Groups view
 document.addEventListener('change', (e) => {
+  if (e.target.id === 'gemini-model-select' && validateField(e.target)) {
+    settings.selectedModel = e.target.value || 'auto';
+    saveSettings(settings);
+    toast('Receipt scanner model preference saved.');
+  }
+
   if (e.target.dataset.action === 'set-primary-payer') {
     const gid = e.target.dataset.group;
     const g = rosters.find((x) => x.id === gid);
@@ -1561,105 +1221,7 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-function updateBillTotalsLive() {
-  const rows = $$('.item-entry');
-  let foodPaise = 0;
-  rows.forEach((r) => {
-    const q = Number(r.querySelector('[data-field="quantity"]')?.value) || 0;
-    const u = Number(r.querySelector('[data-field="unitPrice"]')?.value) || 0;
-    foodPaise += Math.round(toPaise(u) * q);
-  });
 
-  const cgst = toPaise($('#tax-cgst')?.value);
-  const sgst = toPaise($('#tax-sgst')?.value);
-  const sc = toPaise($('#tax-sc')?.value);
-  const disc = toPaise($('#bill-discount')?.value);
-  const grandPaise = Math.max(0, foodPaise + cgst + sgst + sc - disc);
-
-  const foodEl = $('#food-subtotal-display');
-  const grandEl = $('#grand-total-display');
-  if (foodEl) foodEl.textContent = formatCurrency(foodPaise);
-  if (grandEl) grandEl.textContent = formatCurrency(grandPaise);
-}
-
-// Receipt Scanning Handler
-async function handleReceiptScan() {
-  const fileInput = $('#receipt-upload');
-  const file = fileInput?.files?.[0];
-  if (!file) {
-    setFieldValidationError(fileInput, 'Choose a receipt image before scanning.');
-    toast('Please select or capture a receipt image first.', true);
-    return;
-  }
-  if (!validateFileInput(fileInput, 'image')) {
-    toast('Please select a valid receipt image (15 MB or smaller).', true);
-    return;
-  }
-
-  if (!settings.apiKey) {
-    toast('Please configure your Gemini API key in Settings first.', true);
-    go('settings');
-    return;
-  }
-
-  const btn = $('#scan-btn');
-  const spinner = $('#scan-spinner');
-  const statusBox = $('#scan-status');
-
-  btn.disabled = true;
-  if (spinner) spinner.style.display = 'inline';
-  statusBox.innerHTML = '<span class="quiet">Compressing image client-side…</span>';
-
-  try {
-    const onProgress = (msg) => {
-      if (statusBox) statusBox.innerHTML = `<span class="quiet">${esc(msg)}</span>`;
-    };
-
-    const receipt = await scanReceipt(
-      file,
-      settings.apiKey,
-      settings.selectedModel || 'auto',
-      onProgress,
-    );
-    const b = currentBill();
-    if (b) {
-      b.restaurantName = receipt.restaurantName;
-      b.tax = { ...receipt.tax };
-      b.discount = receipt.discount;
-      b.statedTotal = receipt.statedGrandTotal;
-      b.items = receipt.items.map((it) => ({
-        id: uid('item'),
-        name: it.name,
-        quantity: it.quantity,
-        unitPaise: toPaise(it.unitPrice),
-        totalPaise: Math.round(toPaise(it.unitPrice) * it.quantity),
-        category: it.category,
-        assignments: [],
-      }));
-      toast(
-        `Receipt scanned successfully using ${receipt.modelUsed || 'Gemini'}! Review extracted items.`,
-      );
-      renderBill();
-    }
-  } catch (err) {
-    const errorMessage = err?.message || 'Unable to scan this image. Please try another image.';
-
-    if (err?.code === 'NOT_A_BILL') {
-      const alertMessage = `${errorMessage} You can also enter items manually.`;
-      if (statusBox) {
-        statusBox.innerHTML = `<div class="warning" role="alert"><strong>Bill not detected.</strong> ${esc(alertMessage)}</div>`;
-      }
-      // Show a visible toast alert as well as the inline message beside the uploader.
-      toast(errorMessage, true);
-    } else if (statusBox) {
-      statusBox.innerHTML = `<div class="warning" role="alert">⚠️ ${esc(errorMessage)} You can also enter items manually.</div>`;
-      toast(errorMessage, true);
-    }
-  } finally {
-    btn.disabled = false;
-    if (spinner) spinner.style.display = 'none';
-  }
-}
 
 // Voice Command Handler (Web Speech API)
 function handleVoiceCommand() {
@@ -1725,227 +1287,6 @@ function saveCurrentOutingToRecent() {
   saveRecent(recent);
   toast('Bill saved to recent history.');
   return true;
-}
-
-// QR Code Modal
-function openQRModal(settlementIdx) {
-  const calc = computeBillShares();
-  if (!calc) return;
-  const balances = netBalances(calc.shares, calc.bill.payers || []);
-  const settlements = minimumCashFlow(balances);
-  const st = settlements[settlementIdx];
-  if (!st) return;
-
-  const creditor = calc.members.find((m) => m.id === st.creditor);
-  const upiId = creditor?.upiId;
-  if (!isValidUpiId(upiId)) {
-    toast('Creditor does not have a valid UPI ID.', true);
-    return;
-  }
-
-  const uri = paymentUri({
-    upiId,
-    name: st.creditorName,
-    amountPaise: st.amountPaise,
-    note: `SplitSmart - ${calc.bill.restaurantName || 'Bill'}`,
-  });
-
-  const container = $('#modal-qr-container');
-  renderQR(container, uri, 220);
-
-  $('#qr-dialog-title').textContent = `Pay ${st.creditorName}`;
-  $('#qr-dialog-details').innerHTML = `
-    <div style="font-size:20px;font-weight:700;margin-bottom:8px;">${formatCurrency(st.amountPaise)}</div>
-    <div class="quiet" style="font-size:13px;">Payer: <strong>${esc(st.debtorName)}</strong></div>
-    <div class="quiet" style="font-size:13px;">UPI ID: <strong>${esc(upiId)}</strong></div>
-    <div class="quiet" style="font-size:12px;margin-top:10px;">Scan using Google Pay, PhonePe, Paytm, or BHIM.</div>
-  `;
-
-  $('#modal-upi-link').href = uri;
-  $('#qr-dialog').showModal();
-}
-
-// Copy Payment Note
-function copyPaymentDetails(settlementIdx) {
-  const calc = computeBillShares();
-  if (!calc) return;
-  const balances = netBalances(calc.shares, calc.bill.payers || []);
-  const settlements = minimumCashFlow(balances);
-  const st = settlements[settlementIdx];
-  if (!st) return;
-
-  const text = `${st.debtorName} owes ${st.creditorName} ${formatCurrency(st.amountPaise)} for ${calc.bill.restaurantName || 'outing'}.`;
-  if (navigator.clipboard) {
-    navigator.clipboard
-      .writeText(text)
-      .then(() => toast('Payment details copied to clipboard.'))
-      .catch(() => prompt('Copy payment details:', text));
-  } else {
-    prompt('Copy payment details:', text);
-  }
-}
-
-// Large UPI Split Modal (> ₹2,000 threshold)
-function openSplitThresholdModal(settlementIdx) {
-  const calc = computeBillShares();
-  if (!calc) return;
-  const balances = netBalances(calc.shares, calc.bill.payers || []);
-  const settlements = minimumCashFlow(balances);
-  const st = settlements[settlementIdx];
-  if (!st) return;
-
-  const totalPaise = st.amountPaise;
-  const parts2 = splitPayment(totalPaise, 2);
-  const parts3 = splitPayment(totalPaise, 3);
-
-  const container = $('#split-dialog-options');
-  container.innerHTML = `
-    <div class="panel" style="background:var(--surface-alt);margin-bottom:12px;">
-      <strong>Option A: 2 equal transfers</strong>
-      <div class="quiet" style="font-size:13px;margin:6px 0;">
-        Part 1: ${formatCurrency(parts2[0])} · Part 2: ${formatCurrency(parts2[1])}
-      </div>
-    </div>
-    <div class="panel" style="background:var(--surface-alt);margin-bottom:12px;">
-      <strong>Option B: 3 transfers</strong>
-      <div class="quiet" style="font-size:13px;margin:6px 0;">
-        Part 1: ${formatCurrency(parts3[0])} · Part 2: ${formatCurrency(parts3[1])} · Part 3: ${formatCurrency(parts3[2])}
-      </div>
-    </div>
-    <p class="quiet" style="font-size:12px;">All splits sum exactly to ${formatCurrency(totalPaise)}. Bank limits depend on your account tier and UPI provider.</p>
-  `;
-
-  $('#split-dialog').showModal();
-}
-
-// Share Claim URL
-function shareClaimUrl() {
-  const b = currentBill();
-  if (!b || !b.items.length) {
-    toast('Add items before sharing.', true);
-    return;
-  }
-
-  try {
-    const payload = makeSharePayload(b, members(), b.items);
-    const link = encodeShare(payload);
-
-    // Populate and display share modal dialog
-    const dlg = $('#share-dialog');
-    if (dlg) {
-      $('#share-dialog-link').value = link;
-      $('#share-dialog-open-btn').href = link;
-      $('#share-dialog-wa-btn').href =
-        `https://api.whatsapp.com/send?text=${encodeURIComponent(`Hey! Here is the SplitSmart bill for ${b.restaurantName || 'our outing'}. Please select the items you ordered: ` + link)}`;
-
-      const copyBtn = $('#share-dialog-copy-btn');
-      if (copyBtn) {
-        copyBtn.textContent = 'Copy Link';
-        copyBtn.onclick = () => {
-          if (navigator.clipboard) {
-            navigator.clipboard
-              .writeText(link)
-              .then(() => {
-                copyBtn.textContent = 'Copied!';
-                toast('Link copied to clipboard!');
-                setTimeout(() => {
-                  copyBtn.textContent = 'Copy Link';
-                }, 2000);
-              })
-              .catch(() => {
-                $('#share-dialog-link').select();
-                document.execCommand('copy');
-                copyBtn.textContent = 'Copied!';
-              });
-          } else {
-            $('#share-dialog-link').select();
-            document.execCommand('copy');
-            copyBtn.textContent = 'Copied!';
-          }
-        };
-      }
-      dlg.showModal();
-    }
-
-    if (navigator.clipboard) {
-      navigator.clipboard
-        .writeText(link)
-        .then(() => toast('Stateless self-claim link copied to clipboard!'))
-        .catch(() => {});
-    }
-  } catch (err) {
-    toast(err.message, true);
-  }
-}
-
-// Generate WhatsApp Claim from Self-Claim Page
-function generateWhatsAppClaim() {
-  if (!decodedClaimPayload) return;
-  if (!validateFields($('#legacy-react-root'))) return;
-  const claimant = $('#claimant-name-select')?.value;
-
-  const checkedBoxes = $$('[data-claim-item]:checked');
-  const claimedItemIds = Array.from(checkedBoxes).map((b) => b.dataset.claimItem);
-
-  if (claimedItemIds.length === 0) {
-    setFieldValidationError($('#claim-items-list'), 'Select at least one item you consumed.');
-    toast('Please select at least one item you consumed.', true);
-    return;
-  }
-  clearFieldValidation($('#claim-items-list'));
-
-  const claimMsg = claimMessage(decodedClaimPayload, claimant, claimedItemIds);
-  const waUrl = whatsappUrl(claimMsg);
-
-  $('#claim-result-box').innerHTML = `
-    <div class="success" style="margin-bottom:14px;">
-      Claim prepared for <strong>${esc(claimant)}</strong>! Send this message to your outing host on WhatsApp.
-    </div>
-    <textarea readonly style="font-family:var(--font-mono);font-size:12px;margin-bottom:12px;" rows="3">${esc(claimMsg)}</textarea>
-    <a class="button button-primary" href="${esc(waUrl)}" target="_blank" rel="noopener" style="width:100%;">
-      Open WhatsApp &amp; Send to Host
-    </a>
-  `;
-}
-
-// Prompt Host to Import WhatsApp Claim
-function promptImportClaim() {
-  const raw = prompt('Paste the full SPLITSMART_CLAIM message received from WhatsApp:');
-  if (!raw || !raw.trim()) return;
-
-  const b = currentBill();
-  if (!b) return;
-
-  try {
-    const currentPayload = makeSharePayload(b, members(), b.items);
-    const claim = parseClaim(raw.trim(), currentPayload, importedClaims);
-
-    // Preview and confirm
-    const itemNames = claim.itemIds
-      .map((id) => b.items.find((i) => i.id === id)?.name || id)
-      .join(', ');
-    if (
-      confirm(`Import claim from ${claim.user} for:\n• ${itemNames}\n\nApply these assignments?`)
-    ) {
-      const member = members().find((m) => m.name === claim.user);
-      if (member) {
-        claim.itemIds.forEach((id) => {
-          const item = b.items.find((i) => i.id === id);
-          if (item) {
-            item.assignments = item.assignments || [];
-            if (!item.assignments.includes(member.id)) {
-              item.assignments.push(member.id);
-            }
-          }
-        });
-        importedClaims.push(claim);
-        toast(`Claim from ${claim.user} applied successfully!`);
-        go('assign');
-      }
-    }
-  } catch (err) {
-    toast(err.message, true);
-  }
 }
 
 // Hamburger Mobile Navigation Drawer Toggle

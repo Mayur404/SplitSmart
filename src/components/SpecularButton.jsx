@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 
-import '../../styles/components/specular-button.css';
+import '../styles/components/specular-button.css';
 
 const PAD = 24;
 const TAU = Math.PI * 2;

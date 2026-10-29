@@ -4,8 +4,30 @@
  */
 
 const ERROR_CLASS = 'field-validation-message';
-const MAX_RECEIPT_BYTES = 15 * 1024 * 1024;
 const MAX_BACKUP_BYTES = 10 * 1024 * 1024;
+const MAX_RECEIPT_BYTES = 15 * 1024 * 1024;
+const RECEIPT_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif']);
+const RECEIPT_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+]);
+
+/** Return a user-facing receipt image error, or an empty string when the file is valid. */
+export function getReceiptFileError(file) {
+  if (!file) return 'Choose a receipt image before scanning.';
+  const extension = String(file.name || '').split('.').pop().toLowerCase();
+  const mimeType = String(file.type || '').toLowerCase();
+  const mimeIsUnknown = !mimeType || mimeType === 'application/octet-stream';
+  const validImage = RECEIPT_MIME_TYPES.has(mimeType) || (mimeIsUnknown && RECEIPT_EXTENSIONS.has(extension));
+  if (!validImage) return 'Choose a JPG, PNG, WEBP or HEIC image.';
+  if (!Number.isFinite(file.size) || file.size <= 0) return 'The selected image is empty or unreadable.';
+  if (file.size > MAX_RECEIPT_BYTES) return 'Receipt image must be 15 MB or smaller.';
+  return '';
+}
 
 function getErrorHost(input) {
   return input.closest('label') || input.parentElement || input;
@@ -193,13 +215,7 @@ export function validateFileInput(input, kind) {
 
   let message = '';
   if (kind === 'image') {
-    if (
-      !(file.type
-        ? file.type.startsWith('image/')
-        : /\.(png|jpe?g|webp|gif|bmp|heic|heif)$/i.test(file.name))
-    )
-      message = 'Choose an image file (JPG, PNG, WEBP, etc.).';
-    else if (file.size > MAX_RECEIPT_BYTES) message = 'Receipt image must be 15 MB or smaller.';
+    message = getReceiptFileError(file);
   } else if (kind === 'json') {
     if (!/\.json$/i.test(file.name) && file.type !== 'application/json') {
       message = 'Choose a .json backup file.';

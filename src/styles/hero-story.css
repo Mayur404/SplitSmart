@@ -1,0 +1,3 @@
+/* Shared editorial typography used by the advanced bill and dashboard headers. */
+.page-head h1 { text-wrap: balance; }
+.page-head p { text-wrap: pretty; }

@@ -1,12 +1,15 @@
 /** Receipt upload validation, Gemini scanning, and safe bill import. */
 export function createReceiptController(deps) {
-  const { $, toast, setFieldValidationError, validateFileInput, geminiConfigured, go, settings, scanReceipt, currentBill, uid, toPaise, renderBill, esc } = deps;
+  const { $, toast, validateFileInput, geminiConfigured, go, settings, scanReceipt, currentBill, uid, toPaise, renderBill, esc } = deps;
 
   async function handleReceiptScan() {
     const fileInput = $('#receipt-upload');
     const file = fileInput?.files?.[0];
     if (!file) {
-      setFieldValidationError(fileInput, 'Choose a receipt image before scanning.');
+      const message = 'Choose a receipt image before scanning.';
+      if (fileInput) fileInput.setAttribute('aria-invalid', 'true');
+      const fileStatus = $('#receipt-file-status');
+      if (fileStatus) fileStatus.innerHTML = `<div class="receipt-upload-error" role="alert">${esc(message)}</div>`;
       toast('Please select or capture a receipt image first.', true);
       return;
     }
@@ -25,9 +28,9 @@ export function createReceiptController(deps) {
     const spinner = $('#scan-spinner');
     const statusBox = $('#scan-status');
 
-    btn.disabled = true;
+    if (btn) btn.disabled = true;
     if (spinner) spinner.style.display = 'inline';
-    statusBox.innerHTML = '<span class="quiet">Compressing image client-side…</span>';
+    if (statusBox) statusBox.innerHTML = '<span class="quiet">Compressing image in your browser…</span>';
 
     try {
       const onProgress = (msg) => {
@@ -70,7 +73,7 @@ export function createReceiptController(deps) {
         toast(errorMessage, true);
       }
     } finally {
-      btn.disabled = false;
+      if (btn) btn.disabled = false;
       if (spinner) spinner.style.display = 'none';
     }
   }

@@ -10,7 +10,7 @@
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.{js,jsx,css}\" \"*.{js,json,md,html}\"",
     "format:check": "prettier --check \"src/**/*.{js,jsx,css}\" \"*.{js,json,md,html}\"",
-    "test": "node tests/algorithm.test.js && node tests/vision.test.js && node tests/settings.test.js"
+    "test": "node --import ./tests/register-jsx-loader.mjs tests/algorithm.test.js && node --import ./tests/register-jsx-loader.mjs tests/vision.test.js && node --import ./tests/register-jsx-loader.mjs tests/settings.test.js && node --import ./tests/register-jsx-loader.mjs tests/formBridge.test.js"
   },
   "dependencies": {
     "react": "^19.1.0",

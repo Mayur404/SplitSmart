@@ -1,4 +1,4 @@
-@import './tokens.css';
+@import './theme.css';
 @import './core.css';
 @import './layout.css';
 @import './controls.css';
@@ -17,3 +17,10 @@
 @import './legacy-views.css';
 
 @import './validation.css';
+
+@import './receipt-scanner.css';
+
+@import './claims.css';
+@import './hero-story.css';
+@import './navigation-effects.css';
+@import './ui-refine.css';

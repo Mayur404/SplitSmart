@@ -1,0 +1,334 @@
+/* Receipt uploader — aligned with the supplied SplitSmart scanner reference. */
+.receipt-scanner-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+  overflow: hidden;
+  border: 1px solid var(--scanner-border);
+  border-radius: 26px;
+  background: var(--scanner-card);
+  color: var(--scanner-text);
+  box-shadow: 0 14px 30px -24px var(--scanner-shadow);
+}
+
+.receipt-scanner-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.receipt-scanner-heading-icon {
+  display: grid;
+  flex: 0 0 52px;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  border-radius: 16px;
+  background: var(--scanner-icon-bg);
+  color: var(--accent-strong);
+}
+
+.receipt-scanner-heading-icon svg {
+  width: 25px;
+  height: 25px;
+}
+
+.receipt-scanner-heading-copy {
+  min-width: 0;
+  padding-top: 1px;
+}
+
+.receipt-scanner-heading-copy h2 {
+  margin: 0 0 10px;
+  color: var(--scanner-text);
+  font-family: var(--font-display);
+  font-size: clamp(20px, 2.2vw, 24px);
+  font-weight: 750;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+}
+
+.receipt-scanner-heading-copy p {
+  max-width: 42ch;
+  margin: 0;
+  color: var(--scanner-muted);
+  font-size: 15.5px;
+  line-height: 1.55;
+}
+
+.receipt-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+  border: 0;
+}
+
+.receipt-drop-zone {
+  display: flex;
+  min-height: 230px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  padding: 22px;
+  border: 1.5px dashed var(--scanner-border);
+  border-radius: 22px;
+  background: var(--scanner-drop-bg);
+  color: var(--scanner-text);
+  text-align: center;
+  transition:
+    border-color var(--t-base) var(--ease),
+    background-color var(--t-base) var(--ease),
+    transform var(--t-base) var(--ease),
+    box-shadow var(--t-base) var(--ease);
+}
+
+.receipt-drop-zone.is-dragover,
+.receipt-drop-zone:focus-within {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--scanner-drop-bg) 80%, var(--scanner-accent));
+  box-shadow: 0 0 0 4px var(--scanner-focus-ring);
+}
+
+.receipt-drop-zone.is-dragover {
+  transform: translateY(-2px);
+}
+
+.receipt-upload-icon {
+  display: grid;
+  width: 58px;
+  height: 58px;
+  place-items: center;
+  margin-bottom: 2px;
+  border-radius: 50%;
+  background: var(--scanner-icon-bg);
+  color: var(--accent-strong);
+}
+
+.receipt-upload-icon svg {
+  width: 26px;
+  height: 26px;
+}
+
+.receipt-drop-title {
+  color: var(--scanner-text);
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.receipt-browse-copy {
+  color: var(--scanner-muted);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.receipt-browse-link {
+  color: var(--accent-strong);
+  cursor: pointer;
+  font-weight: 750;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.receipt-browse-link:hover {
+  color: var(--accent-hover);
+}
+
+.receipt-browse-link:focus-visible {
+  border-radius: 3px;
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.receipt-file-hint {
+  margin-top: 5px;
+  color: var(--scanner-muted);
+  font-size: 13.5px;
+  font-weight: 650;
+  letter-spacing: 0.005em;
+}
+
+.receipt-file-status:empty,
+.receipt-scan-status:empty {
+  display: none;
+}
+
+.receipt-file-status {
+  margin-top: -3px;
+}
+
+.receipt-selected-file {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--scanner-border);
+  border-radius: 12px;
+  background: var(--scanner-selected-bg);
+}
+
+.receipt-selected-file__icon {
+  display: grid;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--success-soft);
+  color: var(--success);
+  font-weight: 800;
+}
+
+.receipt-selected-file__details {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.receipt-selected-file__details strong {
+  overflow: hidden;
+  color: var(--scanner-text);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.receipt-selected-file__details small {
+  color: var(--scanner-muted);
+  font-size: 11.5px;
+}
+
+.receipt-remove-file {
+  flex: 0 0 auto;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--danger);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.receipt-remove-file:hover {
+  background: var(--danger-soft);
+}
+
+.receipt-upload-error {
+  padding: 10px 12px;
+  border: 1px solid var(--danger);
+  border-radius: 10px;
+  background: var(--danger-soft);
+  color: var(--danger-hover);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.receipt-scan-button {
+  display: flex;
+  width: 100%;
+  min-height: 60px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 20px;
+  border: 0;
+  border-radius: 13px;
+  background: var(--scanner-accent);
+  color: var(--scanner-accent-text);
+  cursor: pointer;
+  font: inherit;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 750;
+  box-shadow: 0 8px 16px -13px var(--scanner-button-shadow);
+  transition:
+    background-color var(--t-base) var(--ease),
+    transform var(--t-base) var(--ease),
+    box-shadow var(--t-base) var(--ease),
+    opacity var(--t-base) var(--ease);
+}
+
+.receipt-scan-button:hover:not(:disabled) {
+  background: var(--scanner-accent-hover);
+  box-shadow: 0 11px 20px -13px var(--scanner-button-shadow);
+  transform: translateY(-1px);
+}
+
+.receipt-scan-button:active:not(:disabled) {
+  transform: translateY(0) scale(0.99);
+}
+
+.receipt-scan-button:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 55%, var(--surface));
+  outline-offset: 3px;
+}
+
+.receipt-scan-button:disabled {
+  cursor: progress;
+  opacity: 0.75;
+}
+
+.receipt-settings-link {
+  align-self: center;
+  color: var(--scanner-muted);
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.receipt-settings-link:hover {
+  color: var(--accent-strong);
+}
+
+.receipt-scan-status {
+  margin-top: -4px;
+  color: var(--scanner-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+@media (max-width: 560px) {
+  .receipt-scanner-card {
+    gap: 14px;
+    padding: 18px;
+    border-radius: 21px;
+  }
+
+  .receipt-scanner-heading {
+    gap: 12px;
+  }
+
+  .receipt-scanner-heading-icon {
+    flex-basis: 46px;
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
+  }
+
+  .receipt-scanner-heading-copy p {
+    font-size: 14px;
+  }
+
+  .receipt-drop-zone {
+    min-height: 205px;
+    padding: 18px 12px;
+  }
+
+  .receipt-scan-button {
+    min-height: 56px;
+  }
+}

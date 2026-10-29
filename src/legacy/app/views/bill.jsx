@@ -186,20 +186,49 @@ export function buildBillMarkup(ctx) {
       </section>
 
       <aside>
-        <div class="panel">
-          <h2>Scan Receipt with AI</h2>
-          <p class="panel-intro">Take a picture or select an image. Automatically compressed client-side to max 1024px before scanning with Gemini.</p>
-          <div class="receipt-picker" style="margin-bottom:14px;">
-            <input type="file" id="receipt-upload" data-file-validation="image" accept="image/*" capture="environment" style="font-size:12px;">
+        <section class="receipt-scanner-card" aria-labelledby="receipt-scanner-title">
+          <div class="receipt-scanner-heading">
+            <span class="receipt-scanner-heading-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M3 16v3a2 2 0 0 0 2 2h3" />
+                <path d="M8 12h8" />
+              </svg>
+            </span>
+            <div class="receipt-scanner-heading-copy">
+              <h2 id="receipt-scanner-title">Receipt scanner</h2>
+              <p>Upload a receipt and SplitSmart will extract the items. Images are compressed in your browser.</p>
+            </div>
           </div>
-          <div class="button-row">
-            <button class="button button-secondary button-small" id="scan-btn" data-action="scan-receipt">
-              <span id="scan-spinner" style="display:none;">⏳ </span>Scan Receipt
-            </button>
-            <button class="button button-quiet button-small" data-view="settings">AI Settings</button>
+
+          <input
+            type="file"
+            id="receipt-upload"
+            class="receipt-file-input"
+            data-file-validation="image"
+            accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif"
+            capture="environment"
+            aria-label="Choose a receipt image"
+          >
+
+          <div id="receipt-drop-zone" class="receipt-drop-zone" role="button" tabindex="0" aria-label="Drop a receipt here or press Enter to browse files">
+            <span class="receipt-upload-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5" />
+                <path d="M4 15.5v3A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5v-3" />
+              </svg>
+            </span>
+            <strong class="receipt-drop-title">Drop a receipt here</strong>
+            <span class="receipt-browse-copy">or <label for="receipt-upload" class="receipt-browse-link">browse files</label></span>
+            <small class="receipt-file-hint">JPG, PNG, WEBP or HEIC · up to 15 MB</small>
           </div>
-          <div id="scan-status" style="margin-top:12px;"></div>
-        </div>
+
+          <div id="receipt-file-status" class="receipt-file-status" aria-live="polite"></div>
+          <button type="button" class="receipt-scan-button" id="scan-btn" data-action="scan-receipt">
+            <span id="scan-spinner" class="receipt-scan-spinner" style="display:none;" aria-hidden="true">⏳ </span>
+            <span>Scan receipt</span>
+          </button>
+          <div id="scan-status" class="receipt-scan-status" role="status" aria-live="polite"></div>
+        </section>
 
         <div class="panel">
           <h2>Active Group</h2>

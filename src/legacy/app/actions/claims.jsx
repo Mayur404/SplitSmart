@@ -1,4 +1,4 @@
-import { makeSharePayload, encodeShare, claimMessage, parseClaim, whatsappUrl } from '../../modules/share.js';
+import { makeSharePayload, encodeShare, claimMessage, parseClaim, whatsappUrl } from '../../share.jsx';
 
 /** Stateless claim URL sharing, WhatsApp claim generation, and host-side import. */
 export function createClaimsController(deps) {

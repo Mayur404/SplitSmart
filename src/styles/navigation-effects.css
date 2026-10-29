@@ -1,0 +1,4 @@
+/* Navigation motion stays subtle and respects reduced-motion preferences. */
+.nav-link { transition: color var(--t-base) var(--ease), background-color var(--t-base) var(--ease), transform var(--t-base) var(--ease); }
+.nav-link:active { transform: translateY(1px); }
+@media (prefers-reduced-motion: reduce) { .nav-link { transition: none; } }

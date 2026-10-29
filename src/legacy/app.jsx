@@ -1,19 +1,23 @@
 /**
  * SplitSmart application controller entry point.
- * Feature behavior is composed from focused JSX controller modules under components/.
+ * Feature behavior is composed from focused JSX action modules under app/actions/.
  * This file retains app state, route rendering, and delegated event wiring.
  */
 
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
-import DashboardView, { buildDashboardMarkup } from '../legacy/views/DashboardView.jsx';
-import GroupsView, { buildGroupsMarkup } from '../legacy/views/GroupsView.jsx';
-import BillView, { buildBillMarkup } from '../legacy/views/BillView.jsx';
-import AssignmentView, { buildAssignmentMarkup } from '../legacy/views/AssignmentView.jsx';
-import BreakdownView, { buildBreakdownMarkup } from '../legacy/views/BreakdownView.jsx';
-import SettlementsView, { buildSettlementsMarkup } from '../legacy/views/SettlementsView.jsx';
-import SettingsView, { buildSettingsMarkup } from '../legacy/views/SettingsView.jsx';
-import ClaimView, { buildClaimMarkup } from '../legacy/views/ClaimView.jsx';
+import { selectOne as $, selectAll as $$, escapeHtml as esc } from './app/core.jsx';
+import { getViewTitle } from './app/router.jsx';
+import { emitSplitSmartEvent } from './app/events.jsx';
+import { installReceiptDropListeners } from './app/listeners.jsx';
+import DashboardView, { buildDashboardMarkup } from './app/views/dashboard.jsx';
+import GroupsView, { buildGroupsMarkup } from './app/views/groups.jsx';
+import BillView, { buildBillMarkup } from './app/views/bill.jsx';
+import AssignmentView, { buildAssignmentMarkup } from './app/views/assign.jsx';
+import BreakdownView, { buildBreakdownMarkup } from './app/views/breakdown.jsx';
+import SettlementsView, { buildSettlementsMarkup } from './app/views/settlements.jsx';
+import SettingsView, { buildSettingsMarkup } from './app/views/settings.jsx';
+import ClaimView, { buildClaimMarkup } from './app/views/claim.jsx';
 
 import {
   uid,
@@ -27,7 +31,7 @@ import {
   saveSettings,
   exportBackup,
   importBackup,
-} from '../modules/state.js';
+} from './state.jsx';
 
 import {
   toPaise,
@@ -38,19 +42,19 @@ import {
   netBalances,
   minimumCashFlow,
   runSelfTests,
-} from '../algorithms/algorithm.js';
+} from './algorithm.jsx';
 
-import { paymentUri, renderQR, splitPayment, isValidUpiId } from '../modules/qr.js';
+import { paymentUri, renderQR, splitPayment, isValidUpiId } from './qr.jsx';
 
-import { decodeShare } from '../modules/share.js';
+import { decodeShare } from './share.jsx';
 
-import { scanReceipt, listAvailableModels } from '../modules/vision.js';
-import { GEMINI_API_KEY, GEMINI_CONFIGURED } from '../config/env.js';
-import { createBillingController } from './components/BillingController.jsx';
-import { createAssignmentController } from './components/AssignmentController.jsx';
-import { createReceiptController } from './components/ReceiptController.jsx';
-import { createSettlementController } from './components/SettlementController.jsx';
-import { createClaimsController } from './components/ClaimsController.jsx';
+import { scanReceipt, listAvailableModels } from './vision.jsx';
+import { GEMINI_API_KEY, GEMINI_CONFIGURED } from '../config/gemini.jsx';
+import { createBillingController } from './app/actions/bill.jsx';
+import { createAssignmentController } from './app/actions/assign.jsx';
+import { createReceiptController } from './app/actions/general.jsx';
+import { createSettlementController } from './app/actions/settlement.jsx';
+import { createClaimsController } from './app/actions/claims.jsx';
 
 import {
   installInlineValidation,
@@ -59,26 +63,10 @@ import {
   validateFileInput,
   setFieldValidationError,
   clearFieldValidation,
-} from '../legacy/validation.js';
+} from '../config/formBridge.jsx';
 
 // Install shared blur/input/change validation for dynamically-rendered controls.
 installInlineValidation();
-
-// DOM Selectors and Utilities
-const $ = (sel) => document.querySelector(sel);
-const $$ = (sel) => document.querySelectorAll(sel);
-const esc = (str) =>
-  String(str ?? '').replace(
-    /[&<>"']/g,
-    (c) =>
-      ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;',
-      })[c],
-  );
 
 // React mount used by the legacy workflow controller during incremental migration.
 let legacyViewRoot = null;
@@ -117,7 +105,7 @@ function toast(message, isError = false) {
 function go(targetView) {
   view = targetView;
   render();
-  window.dispatchEvent(new CustomEvent('splitsmart:viewchange', { detail: { view: targetView } }));
+  emitSplitSmartEvent('splitsmart:viewchange', { view: targetView });
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -125,21 +113,11 @@ function setNav() {
   $$('.nav-link').forEach((link) => {
     link.classList.toggle('active', link.dataset.view === view);
   });
-  const titles = {
-    dashboard: 'Overview',
-    groups: 'Group Roster',
-    bill: 'Bill & Receipt Entry',
-    assign: 'Assign Items',
-    breakdown: 'Individual Shares',
-    settlements: 'Settle Up',
-    settings: 'Settings',
-    claim: 'Claim Your Items',
-  };
-  const title = titles[view] || 'SplitSmart';
+  const title = getViewTitle(view);
   const bc = $('#breadcrumb');
   if (bc) bc.textContent = title;
   document.title = `${title} — SplitSmart`;
-  window.dispatchEvent(new CustomEvent('splitsmart:viewchange', { detail: { view } }));
+  emitSplitSmartEvent('splitsmart:viewchange', { view });
 }
 
 // Safe Group Member Access
@@ -396,11 +374,67 @@ const assignmentController = createAssignmentController({
 const { attachDragAndDrop, toggleItemAssignment, executeNaturalLanguageCommand } = assignmentController;
 
 const receiptController = createReceiptController({
-  $, toast, setFieldValidationError, validateFileInput,
+  $, toast, validateFileInput,
   geminiConfigured: GEMINI_CONFIGURED, go, settings, scanReceipt, currentBill, uid,
   toPaise, renderBill, esc,
 });
 const { handleReceiptScan } = receiptController;
+
+function formatReceiptFileSize(size) {
+  if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function updateReceiptSelection(input, { notify = true } = {}) {
+  const fileStatus = $('#receipt-file-status');
+  const dropZone = $('#receipt-drop-zone');
+  const scanStatus = $('#scan-status');
+  const file = input?.files?.[0];
+  if (!file) {
+    if (fileStatus) fileStatus.innerHTML = '';
+    dropZone?.classList.remove('has-file', 'is-dragover');
+    return false;
+  }
+
+  if (!validateFileInput(input, 'image')) {
+    const message = input.parentElement?.querySelector('.field-validation-message')?.textContent
+      || 'Choose a JPG, PNG, WEBP or HEIC image under 15 MB.';
+    clearFieldValidation(input);
+    input.value = '';
+    dropZone?.classList.remove('has-file', 'is-dragover');
+    if (fileStatus) {
+      fileStatus.innerHTML = `<div class="receipt-upload-error" role="alert">${esc(message)}</div>`;
+    }
+    if (notify) toast(message, true);
+    return false;
+  }
+
+  clearFieldValidation(input);
+  dropZone?.classList.add('has-file');
+  if (fileStatus) {
+    fileStatus.innerHTML = `
+      <div class="receipt-selected-file">
+        <span class="receipt-selected-file__icon" aria-hidden="true">✓</span>
+        <span class="receipt-selected-file__details">
+          <strong>${esc(file.name)}</strong>
+          <small>${formatReceiptFileSize(file.size)} · Ready to scan</small>
+        </span>
+        <button type="button" class="receipt-remove-file" data-action="clear-receipt" aria-label="Remove selected receipt">Remove</button>
+      </div>`;
+  }
+  if (scanStatus) scanStatus.textContent = '';
+  return true;
+}
+
+installReceiptDropListeners((input, error) => {
+  if (error) {
+    const fileStatus = $('#receipt-file-status');
+    if (fileStatus) fileStatus.innerHTML = `<div class="receipt-upload-error" role="alert">${esc(error.message)}</div>`;
+    toast(error.message, true);
+    return;
+  }
+  if (input) updateReceiptSelection(input);
+});
 
 const settlementController = createSettlementController({
   $, computeBillShares, netBalances, minimumCashFlow, members, isValidUpiId,
@@ -1013,6 +1047,18 @@ document.addEventListener('click', async (e) => {
       break;
     }
 
+    case 'clear-receipt': {
+      const input = $('#receipt-upload');
+      if (input) {
+        input.value = '';
+        clearFieldValidation(input);
+        updateReceiptSelection(input, { notify: false });
+      }
+      const status = $('#scan-status');
+      if (status) status.textContent = '';
+      break;
+    }
+
     case 'scan-receipt': {
       handleReceiptScan();
       break;
@@ -1162,9 +1208,7 @@ document.addEventListener('change', (e) => {
   }
 
   if (e.target.id === 'receipt-upload') {
-    if (e.target.files?.length && !validateFileInput(e.target, 'image')) {
-      toast('Please select a valid receipt image (15 MB or smaller).', true);
-    }
+    updateReceiptSelection(e.target);
   }
 
   if (e.target.matches('[data-claim-item]')) {

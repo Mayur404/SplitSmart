@@ -105,7 +105,7 @@
     if (!indicator.classList.contains('ready')) indicator.classList.add('ready');
   }
 
-  // Flow progress is rendered by React in src/legacy/components/FlowProgress.jsx.
+  // Flow progress is rendered by React in src/components/FlowProgress.jsx.
 
   // ---- 4. Count-up (Indian grouping, mirrors algorithm.js formatCurrency) ----
   function formatPaise(p) {

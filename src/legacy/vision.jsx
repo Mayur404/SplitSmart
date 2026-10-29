@@ -1,4 +1,5 @@
-import { GEMINI_API_KEY } from '../config/env.js';
+import { GEMINI_API_KEY } from '../config/gemini.jsx';
+import { getReceiptFileError } from '../config/formBridge.jsx';
 
 /**
  * SplitSmart — vision.js
@@ -20,33 +21,22 @@ export const CANDIDATE_MODELS = [
  * Returns { data: base64String, mimeType: 'image/jpeg' }.
  */
 export async function compressImage(file) {
-  if (!file || !file.type.startsWith('image/')) {
-    throw new Error('Please select a valid image file (JPEG, PNG, WEBP, etc.).');
-  }
+  const fileError = getReceiptFileError(file);
+  if (fileError) throw new Error(fileError);
 
   const objectUrl = URL.createObjectURL(file);
 
   try {
     const img = new Image();
-    img.src = objectUrl;
-
-    // Wait for image decode with fallback to onload
+    // Attach handlers before assigning src so fast local files cannot race the listener.
     await new Promise((resolve, reject) => {
-      if (img.decode) {
-        img
-          .decode()
-          .then(resolve)
-          .catch(() => {
-            img.onload = () => resolve();
-            img.onerror = () =>
-              reject(
-                new Error('Could not load or decode the image. Try a standard JPEG, PNG, or WEBP.'),
-              );
-          });
-      } else {
-        img.onload = () => resolve();
-        img.onerror = () => reject(new Error('Could not load image.'));
-      }
+      img.onload = resolve;
+      img.onerror = () => reject(
+        new Error(
+          'This image could not be decoded by your browser. Convert HEIC to JPG or upload a JPG, PNG or WEBP image.',
+        ),
+      );
+      img.src = objectUrl;
     });
 
     const maxDim = 1024;

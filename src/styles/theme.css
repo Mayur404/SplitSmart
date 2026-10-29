@@ -102,6 +102,21 @@
   --surface: #fbf8f0;
   --surface-alt: #ece6d6;
 
+  /* Receipt scanner surface (centralized for easy visual tuning). */
+  --scanner-card: #e5eadc;
+  --scanner-border: #aebba3;
+  --scanner-icon-bg: #d8e0ca;
+  --scanner-drop-bg: #f3f0e7;
+  --scanner-text: #252d21;
+  --scanner-muted: #5d6955;
+  --scanner-accent: #b9e36a;
+  --scanner-accent-hover: #a8d957;
+  --scanner-accent-text: #52633e;
+  --scanner-selected-bg: #f8f7ef;
+  --scanner-shadow: rgba(42, 55, 32, 0.5);
+  --scanner-button-shadow: rgba(60, 91, 24, 0.7);
+  --scanner-focus-ring: rgba(11, 107, 77, 0.1);
+
   --ink: #1d2420;
   --text: #1d2420;
   --ink-secondary: #3f4842;

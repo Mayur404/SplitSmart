@@ -63,8 +63,8 @@ export function buildBreakdownMarkup(ctx) {
 
   return `
     ${renderHeader(
-      'Individual Shares &amp; Payments',
-      'Proportional distribution of food, taxes, and discounts based on consumption.',
+      'Review shares',
+      'Check each share and record who paid.',
       `
       <button class="button button-secondary" data-action="back-to-assign">← Edit Assignments</button>
     `,
@@ -115,8 +115,8 @@ export function buildBreakdownMarkup(ctx) {
 
       <aside>
         <div class="panel" id="payers-panel">
-          <h2>Who Paid the Bill?</h2>
-          <p class="panel-intro">Record who paid at the venue. Edit amounts, then click <strong>Update Calculations</strong> below.</p>
+          <h2>Who paid?</h2>
+          <p class="panel-intro">Record the amount each person paid.</p>
 
           <div class="payer-list" style="display:flex;flex-direction:column;gap:10px;">
             ${calc.members
@@ -178,8 +178,8 @@ export function buildBreakdownMarkup(ctx) {
           </div>
 
           <div class="button-row" style="margin-top:8px;">
-            <button class="button button-secondary button-small" data-action="set-first-payer">Set 1st Person as Full Payer</button>
-            <button class="button button-secondary button-small" data-action="split-payers-equally">Split Payments Equally</button>
+            <button class="button button-secondary button-small" data-action="set-first-payer">First person pays all</button>
+            <button class="button button-secondary button-small" data-action="split-payers-equally">Split equally</button>
           </div>
         </div>
       </aside>

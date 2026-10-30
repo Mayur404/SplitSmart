@@ -90,8 +90,8 @@ export function buildAssignmentMarkup(ctx) {
 
   return `
     ${renderHeader(
-      'Assign Items',
-      'Tap or drag people onto items to assign who shared them. Divisible costs split equally.',
+      'Assign',
+      'Choose who shared each item.',
       `
       <button class="button button-secondary" data-action="back-to-bill">← Edit Bill</button>
     `,

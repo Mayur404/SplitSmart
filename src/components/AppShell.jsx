@@ -13,8 +13,8 @@ export default function AppShell() {
       <Sidebar />
       <main className="main">
         <Topbar />
-        <FlowProgress />
         <MainViewport />
+        <FlowProgress />
         <Footer />
       </main>
       <ToastRegion />

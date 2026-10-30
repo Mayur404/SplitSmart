@@ -171,6 +171,7 @@ function renderHeader(title, subtitle, actionsHtml = '') {
       </div>
       ${actionsHtml ? `<div class="head-actions">${actionsHtml}</div>` : ''}
     </div>
+    <div id="flow-progress-slot" class="flow-progress-slot" aria-live="off"></div>
   `;
 }
 

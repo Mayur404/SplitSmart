@@ -16,16 +16,6 @@ const NAV_ITEMS = [
       </>
     ),
   },
-  {
-    key: 'settings',
-    label: 'Settings',
-    icon: (
-      <>
-        <circle cx="12" cy="12" r="3" />
-        <path d="m19.4 15 .1.1 1.4 1.1-1.4 2.4-1.7-.6a8 8 0 0 1-1.5.9l-.3 1.8h-2.8l-.3-1.8a8 8 0 0 1-1.5-.9l-1.7.6-1.4-2.4L7.7 15a7 7 0 0 1 0-1.8l-1.4-1.1 1.4-2.4 1.7.6a8 8 0 0 1 1.5-.9l.3-1.8H14l.3 1.8a8 8 0 0 1 1.5.9l1.7-.6 1.4 2.4-1.4 1.1a7 7 0 0 1-.1 1.8Z" />
-      </>
-    ),
-  },
 ];
 
 export default function Sidebar() {
@@ -64,6 +54,17 @@ export default function Sidebar() {
             <span>{label}</span>
           </button>
         ))}
+        <button type="button" className="nav-link nav-link-new-bill" data-action="new-bill">
+          <span className="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg></span>
+          <span>New bill</span>
+        </button>
+        <div className="nav-section-label">Preferences</div>
+        <button type="button" data-view="settings" className="nav-link">
+          <span className="nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="m19.4 15 .1.1 1.4 1.1-1.4 2.4-1.7-.6a8 8 0 0 1-1.5.9l-.3 1.8h-2.8l-.3-1.8a8 8 0 0 1-1.5-.9l-1.7.6-1.4-2.4L7.7 15a7 7 0 0 1 0-1.8l-1.4-1.1 1.4-2.4 1.7.6a8 8 0 0 1 1.5-.9l.3-1.8H14l.3 1.8a8 8 0 0 1 1.5.9l1.7-.6 1.4 2.4-1.4 1.1a7 7 0 0 1-.1 1.8Z" /></svg>
+          </span>
+          <span>Settings</span>
+        </button>
       </nav>
     </aside>
   );

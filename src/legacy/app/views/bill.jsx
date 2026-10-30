@@ -82,8 +82,8 @@ export function buildBillMarkup(ctx) {
 
   return `
     ${renderHeader(
-      'Enter Bill Details',
-      'Add items manually or scan a paper receipt. You can finish without AI.',
+      'New bill',
+      'Add the receipt details, then assign each item.',
       `
       <button class="button button-secondary" data-view="groups">Change Group (${esc(activeGroup?.name || 'Group')})</button>
     `,

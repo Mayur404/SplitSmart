@@ -1,10 +1,10 @@
 /** Shared route labels used by the legacy workflow controller and React shell. */
 export const VIEW_TITLES = Object.freeze({
   dashboard: 'Overview',
-  groups: 'Group Roster',
-  bill: 'Bill & Receipt Entry',
-  assign: 'Assign Items',
-  breakdown: 'Individual Shares',
+  groups: 'Groups',
+  bill: 'New Bill',
+  assign: 'Assign',
+  breakdown: 'Review Shares',
   settlements: 'Settle Up',
   settings: 'Settings',
   claim: 'Claim Your Items',

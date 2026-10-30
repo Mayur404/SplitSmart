@@ -1,5 +1,6 @@
 import React from 'react';
 import SpecularButton from './SpecularButton.jsx';
+import ThemeToggle from './ThemeToggle.jsx';
 
 export default function Topbar() {
   return (
@@ -42,6 +43,7 @@ export default function Topbar() {
           <span aria-hidden="true">＋</span>
           <span>New Bill</span>
         </SpecularButton>
+        <ThemeToggle />
       </div>
     </header>
   );

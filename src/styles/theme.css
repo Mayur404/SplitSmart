@@ -94,15 +94,57 @@
     U+A720-A7FF;
 }
 
-/* ---------- Single advanced receipt palette ("thermal paper") ---------- */
-:root {
+/* --------------------------------------------------------------------------
+   SplitSmart design tokens
+   Edit this file to change the global typography, palette, radii and shadows.
+   Theme switching is controlled by data-theme="light|dark" on <html>.
+   -------------------------------------------------------------------------- */
+:root,
+:root[data-theme='light'] {
   color-scheme: light;
 
-  --paper: #f3eee2;
-  --surface: #fbf8f0;
-  --surface-alt: #ece6d6;
+  /* Surfaces */
+  --paper: #f3f0e7;
+  --surface: #e6eadf;
+  --surface-alt: #dfe6d3;
+  --surface-raised: #edf1e5;
+  --surface-card: #dcebbd;
+  --surface-card-strong: #d4e8a8;
+  --sidebar-bg: #e5e9dd;
 
-  /* Receipt scanner surface (centralized for easy visual tuning). */
+  /* Text */
+  --ink: #242b20;
+  --text: #242b20;
+  --ink-secondary: #53604a;
+  --muted: #68735e;
+
+  /* Borders */
+  --line: #d2d8c8;
+  --line-strong: #aab69b;
+
+  /* Lime / olive identity */
+  --accent: #a9ed28;
+  --accent-hover: #9cdd20;
+  --accent-strong: #405b24;
+  --accent-soft: #e5f2c8;
+  --accent-fill: #b3f32f;
+  --on-accent: #26351a;
+  --key-shadow: #82b51c;
+
+  /* Secondary and semantic colors */
+  --saffron: #ad7027;
+  --saffron-soft: #f6e7c9;
+  --danger: #bb3c31;
+  --danger-hover: #9d2d25;
+  --danger-soft: #f5e1dc;
+  --warning: #92621a;
+  --warning-soft: #f6edcf;
+  --warning-line: #dfc985;
+  --success: #557a36;
+  --success-soft: #e4efd5;
+  --success-line: #c1d4a8;
+
+  /* Receipt scanner */
   --scanner-card: #e5eadc;
   --scanner-border: #aebba3;
   --scanner-icon-bg: #d8e0ca;
@@ -113,69 +155,63 @@
   --scanner-accent-hover: #a8d957;
   --scanner-accent-text: #52633e;
   --scanner-selected-bg: #f8f7ef;
-  --scanner-shadow: rgba(42, 55, 32, 0.5);
-  --scanner-button-shadow: rgba(60, 91, 24, 0.7);
-  --scanner-focus-ring: rgba(11, 107, 77, 0.1);
+  --scanner-shadow: rgba(42, 55, 32, 0.22);
+  --scanner-button-shadow: rgba(60, 91, 24, 0.25);
+  --scanner-focus-ring: rgba(11, 107, 77, 0.14);
 
-  --ink: #1d2420;
-  --text: #1d2420;
-  --ink-secondary: #3f4842;
-  --muted: #5b625c;
-
-  --line: #ddd5c0;
-  --line-strong: #bfb69b;
-
-  /* Primary: emerald (money) */
-  --accent: #0b6b4d;
-  --accent-hover: #08573e;
-  --accent-strong: #06402d;
-  --accent-soft: #dbece2;
-  --accent-fill: #0b6b4d;
-  --on-accent: #ffffff;
-  --key-shadow: #06402d;
-
-  /* Secondary: saffron (highlights only) */
-  --saffron: #a85a00;
-  --saffron-soft: #fbe9cc;
-
-  --danger: #b42318;
-  --danger-hover: #8e1b12;
-  --danger-soft: #fbe6e2;
-  --warning: #7a4a00;
-  --warning-soft: #fbeccd;
-  --warning-line: #e6c987;
-  --success: #17683a;
-  --success-soft: #e0f1e6;
-  --success-line: #b5dcc3;
-
-  --claim-bg: #0b5c42;
+  /* Overlays, claim cards and generated QR palettes */
+  --claim-bg: #405b2b;
   --claim-fg: #ffffff;
-  --claim-sub: #d5eadf;
+  --claim-sub: #e2edda;
   --on-surface: #ffffff;
   --mask-solid: #000000;
-  --overlay: rgba(14, 18, 15, 0.58);
-  --overlay-soft: rgba(18, 24, 21, 0.55);
+  --overlay: rgba(26, 34, 21, 0.52);
+  --overlay-soft: rgba(26, 34, 21, 0.38);
   --specular-highlight: rgba(255, 255, 255, 0.95);
   --specular-sheen: rgba(255, 255, 255, 0.38);
-  --specular-shadow: rgba(0, 0, 0, 0.45);
-  --specular-shadow-accent: rgba(11, 107, 77, 0.18);
-  --receipt-highlight: rgba(255, 255, 255, 0.5);
-  --receipt-shadow: rgba(60, 45, 10, 0.25);
-  --qr-dark: #133527;
+  --specular-shadow: rgba(0, 0, 0, 0.3);
+  --specular-shadow-accent: rgba(111, 151, 30, 0.2);
+  --receipt-highlight: rgba(255, 255, 255, 0.55);
+  --receipt-shadow: rgba(60, 75, 35, 0.16);
+  --qr-dark: #263a22;
   --qr-light: #ffffff;
 
-  /* Radii */
+  /* Dashboard illustration accents */
+  --flow-current-bg: #718c55;
+  --flow-current-fg: #ffffff;
+  --illustration-skin: #d39b68;
+  --illustration-skin-deep: #895b3d;
+  --illustration-skin-light: #e0b188;
+  --illustration-hair: #43301e;
+  --illustration-hair-deep: #241f18;
+  --illustration-hair-light: #28231c;
+  --illustration-shirt-one: #77984d;
+  --illustration-shirt-two: #9baa46;
+  --illustration-shirt-three: #425f34;
+  --plate-rim: #789252;
+  --plate-base: #536e3e;
+  --plate-shadow: #a2b78c;
+  --plate-food: #f1ebd7;
+  --plate-food-border: #d1d6bc;
+  --plate-main: #e0a33b;
+  --plate-main-accent: #f1d778;
+
+  /* Typography */
+  --font-display: 'Bricolage Grotesque', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-stack: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-money: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Shape and elevation */
   --r-sm: 6px;
   --r-md: 10px;
-  --r-lg: 16px;
+  --r-lg: 15px;
   --r-full: 9999px;
+  --shadow-sm: 0 1px 2px rgba(47, 59, 35, 0.07), 0 5px 15px rgba(47, 59, 35, 0.05);
+  --shadow-md: 0 1px 0 rgba(255, 255, 255, 0.45) inset, 0 10px 24px rgba(47, 59, 35, 0.11);
+  --shadow-lg: 0 18px 44px rgba(35, 44, 27, 0.2);
 
-  /* Elevation */
-  --shadow-sm: 0 1px 0 rgba(255, 255, 255, 0.7) inset, 0 1px 2px rgba(60, 45, 10, 0.08);
-  --shadow-md: 0 1px 0 rgba(255, 255, 255, 0.7) inset, 0 6px 18px rgba(60, 45, 10, 0.1);
-  --shadow-lg: 0 18px 44px rgba(40, 30, 5, 0.22);
-
-  /* Spacing (4px base) */
+  /* Spacing and type scale */
   --sp-1: 4px;
   --sp-2: 8px;
   --sp-3: 12px;
@@ -183,39 +219,125 @@
   --sp-5: 24px;
   --sp-6: 32px;
   --sp-7: 48px;
-
-  /* Type scale */
-  --fs-xs: 12px;
-  --fs-sm: 13px;
-  --fs-md: 15px;
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 14px;
   --fs-lg: 18px;
   --fs-xl: 24px;
-  --fs-2xl: clamp(26px, 3.4vw, 36px);
+  --fs-2xl: clamp(28px, 3.1vw, 38px);
 
-  /* Motion */
+  /* Motion and decorative effects */
   --t-fast: 140ms;
   --t-base: 240ms;
   --t-slow: 420ms;
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dot: rgba(49, 67, 34, 0.035);
+  --noise-alpha: 0.035;
+  --aur-1: rgba(169, 237, 40, 0.16);
+  --aur-2: rgba(214, 180, 90, 0.13);
+  --aur-3: rgba(95, 139, 78, 0.10);
+  --spot: rgba(169, 237, 40, 0.12);
+  --spot-soft: rgba(169, 237, 40, 0.06);
+}
 
-  --font-display:
-    'Bricolage Grotesque', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --font-stack:
-    'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans',
-    sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  --font-money: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --paper: #141a13;
+  --surface: #20291e;
+  --surface-alt: #293526;
+  --surface-raised: #303d2a;
+  --surface-card: #2a3b25;
+  --surface-card-strong: #354a2b;
+  --sidebar-bg: #1b2419;
 
-  --dot: rgba(29, 36, 32, 0.075);
-  --noise-alpha: 0.05;
+  --ink: #edf3e6;
+  --text: #edf3e6;
+  --ink-secondary: #c1cdb6;
+  --muted: #9eaa92;
+  --line: #384633;
+  --line-strong: #647657;
 
-  /* FX tokens */
-  --aur-1: rgba(11, 107, 77, 0.17);
-  --aur-2: rgba(214, 140, 30, 0.2);
-  --aur-3: rgba(40, 140, 170, 0.13);
-  --spot: rgba(11, 107, 77, 0.13);
-  --spot-soft: rgba(11, 107, 77, 0.07);
+  --accent: #b7f34a;
+  --accent-hover: #c8ff68;
+  --accent-strong: #d4f8a0;
+  --accent-soft: #35492b;
+  --accent-fill: #b7f34a;
+  --on-accent: #1e2a15;
+  --key-shadow: #729e2b;
+
+  --saffron: #d5a557;
+  --saffron-soft: #493a25;
+  --danger: #ff8278;
+  --danger-hover: #ff9b92;
+  --danger-soft: #4a2926;
+  --warning: #efc06b;
+  --warning-soft: #493d25;
+  --warning-line: #77613b;
+  --success: #a7d77d;
+  --success-soft: #2e4328;
+  --success-line: #4e6b40;
+
+  --scanner-card: #20291e;
+  --scanner-border: #526449;
+  --scanner-icon-bg: #34432c;
+  --scanner-drop-bg: #192117;
+  --scanner-text: #edf3e6;
+  --scanner-muted: #b3c0a8;
+  --scanner-accent: #b7f34a;
+  --scanner-accent-hover: #c8ff68;
+  --scanner-accent-text: #1e2a15;
+  --scanner-selected-bg: #293526;
+  --scanner-shadow: rgba(0, 0, 0, 0.35);
+  --scanner-button-shadow: rgba(0, 0, 0, 0.25);
+  --scanner-focus-ring: rgba(183, 243, 74, 0.2);
+
+  --claim-bg: #30462a;
+  --claim-fg: #f5f8ef;
+  --claim-sub: #d3e4c7;
+  --on-surface: #ffffff;
+  --mask-solid: #000000;
+  --overlay: rgba(0, 0, 0, 0.68);
+  --overlay-soft: rgba(0, 0, 0, 0.5);
+  --specular-highlight: rgba(255, 255, 255, 0.55);
+  --specular-sheen: rgba(255, 255, 255, 0.16);
+  --specular-shadow: rgba(0, 0, 0, 0.5);
+  --specular-shadow-accent: rgba(183, 243, 74, 0.1);
+  --receipt-highlight: rgba(255, 255, 255, 0.04);
+  --receipt-shadow: rgba(0, 0, 0, 0.3);
+  --qr-dark: #142014;
+  --qr-light: #ffffff;
+
+  --flow-current-bg: #7b9d57;
+  --flow-current-fg: #ffffff;
+  --illustration-skin: #d39b68;
+  --illustration-skin-deep: #895b3d;
+  --illustration-skin-light: #e0b188;
+  --illustration-hair: #43301e;
+  --illustration-hair-deep: #241f18;
+  --illustration-hair-light: #28231c;
+  --illustration-shirt-one: #77984d;
+  --illustration-shirt-two: #9baa46;
+  --illustration-shirt-three: #425f34;
+  --plate-rim: #789252;
+  --plate-base: #536e3e;
+  --plate-shadow: #a2b78c;
+  --plate-food: #f1ebd7;
+  --plate-food-border: #d1d6bc;
+  --plate-main: #e0a33b;
+  --plate-main-accent: #f1d778;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.18), 0 5px 15px rgba(0, 0, 0, 0.13);
+  --shadow-md: 0 1px 0 rgba(255, 255, 255, 0.035) inset, 0 10px 24px rgba(0, 0, 0, 0.23);
+  --shadow-lg: 0 18px 44px rgba(0, 0, 0, 0.42);
+
+  --dot: rgba(230, 247, 209, 0.035);
+  --noise-alpha: 0.025;
+  --aur-1: rgba(183, 243, 74, 0.11);
+  --aur-2: rgba(213, 165, 87, 0.08);
+  --aur-3: rgba(95, 139, 78, 0.1);
+  --spot: rgba(183, 243, 74, 0.1);
+  --spot-soft: rgba(183, 243, 74, 0.04);
 }
 
 :root {

@@ -65,22 +65,9 @@ export function buildSettlementsMarkup(ctx) {
       return `
       <div class="settlement" data-settlement-idx="${idx}">
         <div class="settlement-payer">
-          <strong style="font-size:15px;">${esc(st.debtorName)}</strong>
-          <span class="quiet" style="font-size:12px;">owes</span>
-        </div>
-
-        <div class="settlement-arrow" aria-hidden="true">→</div>
-
-        <div class="settlement-payee">
-          <strong style="font-size:15px;">${esc(st.creditorName)}</strong>
-          <span class="quiet" style="font-size:12px;">${hasUpi ? esc(upiId) : 'No UPI configured'}</span>
-        </div>
-
-        <div class="settlement-amount amount">
-          ${formatCurrency(st.amountPaise)}
-        </div>
-
-        <div class="pay-actions">
+          <strong>${esc(st.debtorName)}</strong>
+          <span class="quiet">owes</span>
+          <div class="pay-actions">
           ${
             hasUpi
               ? `
@@ -100,7 +87,17 @@ export function buildSettlementsMarkup(ctx) {
           `
               : ''
           }
+          </div>
         </div>
+
+        <div class="settlement-arrow" aria-hidden="true">→</div>
+
+        <div class="settlement-payee">
+          <strong>${esc(st.creditorName)}</strong>
+          <span class="quiet">${hasUpi ? esc(upiId) : 'No UPI configured'}</span>
+        </div>
+
+        <div class="settlement-amount amount">${formatCurrency(st.amountPaise)}</div>
       </div>
     `;
     })
@@ -108,8 +105,8 @@ export function buildSettlementsMarkup(ctx) {
 
   return `
     ${renderHeader(
-      'Settlement Plan',
-      'Direct peer-to-peer transfers to balance the group using Minimum Cash Flow.',
+      'Settle up',
+      'A short list of direct transfers.',
       `
       <button class="button button-secondary" data-view="breakdown">← Back to Shares</button>
     `,
@@ -119,7 +116,7 @@ export function buildSettlementsMarkup(ctx) {
       <div class="section-head">
         <div>
           <h2>${settlements.length ? `${settlements.length} Payment${settlements.length === 1 ? '' : 's'} to Balance Group` : 'All Accounts Settled!'}</h2>
-          <p>Greedy cash flow algorithm minimizes the total number of transfers needed.</p>
+          <p>Minimum Cash Flow keeps the list short.</p>
         </div>
         <span class="pill">${formatCurrency(settlements.reduce((a, b) => a + b.amountPaise, 0))} total debt</span>
       </div>
@@ -136,10 +133,9 @@ export function buildSettlementsMarkup(ctx) {
     </div>
 
     <div class="panel" style="margin-top:24px;">
-      <h2>Payment Disclaimer</h2>
+      <h2>Payment note</h2>
       <p class="panel-intro">
-        Opening a UPI app or scanning a QR code generates a payment intent. It does not automatically confirm that payment was received.
-        Both the sender and receiver should verify transaction success in their banking or UPI app.
+        UPI links and QR codes create payment intents. Confirm the transfer in your banking app.
       </p>
     </div>
   `;

@@ -45,10 +45,10 @@
   // ---- breadcrumb text (set by app.js setNav) -> view key ----
   var VIEW_BY_TITLE = {
     Overview: 'dashboard',
-    'Group Roster': 'groups',
-    'Bill & Receipt Entry': 'bill',
-    'Assign Items': 'assign',
-    'Individual Shares': 'breakdown',
+    Groups: 'groups',
+    'New Bill': 'bill',
+    Assign: 'assign',
+    'Review Shares': 'breakdown',
     'Settle Up': 'settlements',
     Settings: 'settings',
     'Claim Your Items': 'claim',

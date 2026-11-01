@@ -1,42 +1,44 @@
-import React, { useEffect, useState } from 'react';
-import AppShell from './components/AppShell.jsx';
-import BootLoader from './components/BootLoader.jsx';
-import './styles/style.css';
+import { useEffect } from "react";
+import BootLoader from "./components/BootLoader.jsx";
+import Sidebar from "./components/Sidebar.jsx";
+import Topbar from "./components/Topbar.jsx";
+import MainViewport from "./components/MainViewport.jsx";
+import ToastRegion from "./components/ToastRegion.jsx";
+import Dialogs from "./components/Dialogs.jsx";
 
 export default function App() {
-  const [startupError, setStartupError] = useState('');
-  const [isReady, setIsReady] = useState(false);
-
   useEffect(() => {
-    let active = true;
-    async function startApplication() {
-      try {
-        await import('./legacy/app.jsx');
-        await import('./legacy/motion.jsx');
-        if (active) setIsReady(true);
-      } catch (error) {
-        console.error('SplitSmart initialization failed:', error);
-        if (active)
-          setStartupError(
-            error instanceof Error ? error.message : 'Unable to initialize SplitSmart.',
-          );
-      }
-    }
-    startApplication();
-    return () => {
-      active = false;
-    };
+    import("./legacy/app.jsx")
+      .then(() => import("./legacy/motion.jsx"))
+      .catch((error) => {
+        console.error("SplitSmart failed to initialize:", error);
+        const app = document.getElementById("app");
+        if (app) {
+          app.textContent = "";
+          const section = document.createElement("section");
+          section.className = "panel";
+          const heading = document.createElement("h2");
+          heading.textContent = "Unable to start SplitSmart";
+          const message = document.createElement("p");
+          message.textContent = "Please refresh the page. If the problem persists, inspect the browser console.";
+          section.append(heading, message);
+          app.append(section);
+        }
+      });
   }, []);
 
   return (
     <>
-      <AppShell />
-      {!isReady && !startupError && <BootLoader />}
-      {startupError && (
-        <div className="startup-error" role="alert">
-          SplitSmart could not start: {startupError}
-        </div>
-      )}
+      <BootLoader />
+      <div className="app-shell">
+        <Sidebar />
+        <main className="main">
+          <Topbar />
+          <MainViewport />
+        </main>
+      </div>
+      <ToastRegion />
+      <Dialogs />
     </>
   );
 }

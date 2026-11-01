@@ -1,50 +1,27 @@
-import React from 'react';
-import SpecularButton from './SpecularButton.jsx';
-import ThemeToggle from './ThemeToggle.jsx';
-
 export default function Topbar() {
   return (
-    <header className="topbar">
-      <div className="topbar-left">
-        <button
-          id="menu-toggle"
-          className="icon-button mobile-menu"
-          type="button"
-          aria-label="Toggle navigation drawer"
-          aria-expanded="false"
-        >
-          <span className="hamburger" aria-hidden="true" />
-        </button>
-        <div id="breadcrumb" className="breadcrumb" aria-live="polite">
-          Overview
-        </div>
+  <header className="topbar">
+    <div className="topbar-left">
+      <button id="menu-toggle" className="icon-button mobile-menu" aria-label="Toggle navigation drawer" aria-expanded="false">
+        <span className="hamburger" aria-hidden="true"></span>
+      </button>
+      <div className="claim-brand" aria-label="SplitSmart">
+        <span className="claim-brand-mark" aria-hidden="true">$</span>
+        <span className="claim-brand-text">Split<span>Smart</span></span>
       </div>
-      <div className="topbar-right">
-        <SpecularButton
-          size="sm"
-          radius={12}
-          tint="var(--accent)"
-          tintOpacity={1}
-          textColor="var(--on-accent)"
-          lineColor="var(--accent-soft)"
-          baseColor="var(--accent-strong)"
-          intensity={1.1}
-          idleIntensity={0.24}
-          shineSize={11}
-          shineFade={36}
-          thickness={1.25}
-          glow={0.8}
-          followMouse
-          proximity={220}
-          className="topbar-new-bill"
-          data-action="new-bill"
-          aria-label="Create a new bill"
-        >
-          <span aria-hidden="true">＋</span>
-          <span>New Bill</span>
-        </SpecularButton>
-        <ThemeToggle />
-      </div>
-    </header>
+      <div id="breadcrumb" className="breadcrumb" aria-live="polite">Overview</div>
+    </div>
+    <div className="topbar-right">
+      <button className="button button-primary button-small" data-action="new-bill">
+        <svg className="button-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 5v14M5 12h14"></path>
+        </svg>
+        <span>New bill</span>
+      </button>
+      <button className="icon-button theme-toggle" data-action="toggle-theme" title="Toggle light or dark theme" aria-label="Toggle theme">
+        <span id="theme-icon" aria-hidden="true"></span>
+      </button>
+    </div>
+  </header>
   );
 }

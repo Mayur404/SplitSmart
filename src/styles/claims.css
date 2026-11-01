@@ -1,3 +1,216 @@
-/* Claim-specific styles are composed from the shared legacy-view and feedback layers. */
-#app[data-screen='claim'] .claim-card { border-color: var(--line-strong); }
-#app[data-screen='claim'] .claim-item:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+html:root {
+  --r-card: 20px;      
+  --r-item: 18px;       
+  --r-inner: 14px;   
+  --claim-ease: cubic-bezier(.22, 1, .36, 1);
+  --card-shadow: 0 1px 2px rgba(50, 62, 30, .08), 0 10px 22px -14px rgba(50, 62, 30, .35);
+  --card-shadow-hover: 0 2px 4px rgba(50, 62, 30, .10), 0 16px 30px -14px rgba(50, 62, 30, .42);
+  --lime-wash: color-mix(in srgb, var(--lime) 9%, var(--glass-strong));
+  --lime-edge: color-mix(in srgb, var(--lime) 62%, var(--glass-border));
+}
+html[data-theme="dark"] {
+  --card-shadow: 0 1px 2px rgba(0, 0, 0, .35), 0 10px 22px -14px rgba(0, 0, 0, .7);
+  --card-shadow-hover: 0 2px 4px rgba(0, 0, 0, .4), 0 16px 30px -14px rgba(0, 0, 0, .8);
+  --lime-wash: color-mix(in srgb, var(--lime) 8%, var(--glass-strong));
+  --lime-edge: color-mix(in srgb, var(--lime) 48%, var(--glass-border));
+}
+
+@keyframes ss-rise { from { opacity: 0; transform: translateY(10px); } }
+@keyframes ss-pop  { 0% { transform: scale(.82); } 60% { transform: scale(1.07); } 100% { transform: scale(1); } }
+@keyframes ss-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+
+
+.ai-unroll { font-size: 11.5px; padding: 3px 10px; min-height: 0; }
+
+
+.ai-status { display: inline-flex; align-items: center; gap: 5px; font-weight: 650; }
+.ai-status .icon { width: 14px; height: 14px; }
+.ai-status.is-warn { color: var(--warning); }
+.ai-status.is-ok { color: var(--accent-strong); }
+.ai-names { color: var(--ink-secondary); overflow-wrap: anywhere; }
+
+.claim-page { max-width: 1080px; margin: 4px auto 0; display: grid; gap: 18px; padding-bottom: env(safe-area-inset-bottom, 0px); }
+.claim-page h1, .claim-page h2, .claim-page h3 { font-family: inherit; }
+
+.claim-head {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px 24px; align-items: center;
+  padding: 22px 24px; border: 1px solid var(--glass-border); border-radius: var(--r-card);
+  background: var(--glass-strong); box-shadow: var(--card-shadow);
+}
+.claim-kicker { margin: 0; font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.claim-head h1 { margin: 2px 0 4px; font-size: clamp(22px, 3.2vw, 30px); line-height: 1.15; letter-spacing: -.02em; overflow-wrap: anywhere; }
+.claim-lead { margin: 0; font-size: 14px; color: var(--ink-secondary); }
+.claim-facts { display: flex; gap: 10px; margin: 0; }
+.claim-facts > div { padding: 10px 14px; border: 1px solid var(--line); border-radius: var(--r-inner); background: color-mix(in srgb, var(--surface-alt) 55%, transparent); min-width: 78px; }
+.claim-facts dt { font-size: 11.5px; font-weight: 600; color: var(--muted); }
+.claim-facts dd { margin: 2px 0 0; font-size: 17px; font-weight: 750; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.claim-bar { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; }
+.cb-track { flex: 1; height: 8px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.cb-fill { display: block; width: 100%; height: 100%; border-radius: inherit; background: var(--lime); transform: scaleX(var(--p, 0)); transform-origin: left; transition: transform 320ms var(--claim-ease); }
+.cb-label { font-size: 12.5px; font-weight: 600; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+.claim-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; align-items: start; }
+.claim-main { display: grid; gap: 22px; min-width: 0; }
+
+.claim-who { border: 0; padding: 0; margin: 0; min-width: 0; }
+.claim-who legend, .claim-section-title { padding: 0; margin: 0 0 10px; font-size: 15px; font-weight: 700; letter-spacing: -.005em; color: var(--ink); }
+.claim-people { display: flex; flex-wrap: wrap; gap: 8px; }
+.claim-person { position: relative; display: block; max-width: 100%; cursor: pointer; margin: 0; }
+.claim-person input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.cp-body {
+  display: inline-flex; align-items: center; gap: 8px; max-width: 100%; min-height: 44px; padding: 5px 16px 5px 6px;
+  border: 1px solid var(--glass-border); border-radius: 999px; background: var(--glass-strong); color: var(--ink-secondary);
+  font-size: 14px; font-weight: 600;
+  transition: background-color 180ms, border-color 180ms, color 180ms, box-shadow 220ms, opacity 180ms, translate 220ms var(--claim-ease);
+}
+.cp-avatar { display: grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: 50%; background: var(--accent-soft); color: var(--ink); font-size: 13px; font-weight: 750; transition: background-color 180ms, color 180ms; }
+.cp-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cp-you { display: none; }
+.claim-person input:checked + .cp-body { background: var(--lime); border-color: var(--lime); color: var(--on-lime); box-shadow: 0 0 0 3px color-mix(in srgb, var(--lime) 30%, transparent); }
+.claim-person input:checked + .cp-body .cp-avatar { background: rgba(21, 28, 14, .16); color: var(--on-lime); }
+.claim-people.has-selection .claim-person:not(.is-selected) .cp-body { opacity: .7; }
+.claim-person input:focus-visible + .cp-body { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (hover: hover) {
+  .claim-person:hover input:not(:checked) + .cp-body { opacity: 1; border-color: var(--accent); translate: 0 -1px; }
+}
+
+.claim-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); }
+.claim-item {
+  position: relative; display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 14px;
+  min-height: 68px; padding: 14px 16px; margin: 0; cursor: pointer;
+  border: 1px solid var(--glass-border); border-radius: var(--r-item); background: var(--glass-strong); box-shadow: var(--card-shadow);
+  transition: background-color 200ms, border-color 200ms, box-shadow 220ms, translate 220ms var(--claim-ease);
+}
+.claim-item, .claim-item::before, .claim-item::after { border-radius: var(--r-item); overflow: hidden; }
+.claim-item.is-selected { background: var(--lime-wash); border-color: var(--lime-edge); box-shadow: 0 0 0 1px var(--lime-edge), var(--card-shadow); }
+.ci-input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.ci-box { display: grid; place-items: center; width: 28px; height: 28px; border: 1.5px solid var(--line-strong); border-radius: 9px; background: transparent; transition: background-color 180ms, border-color 180ms; }
+.ci-box svg { width: 18px; height: 18px; fill: none; stroke: var(--on-lime); stroke-width: 2.8; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke-dashoffset 240ms ease 50ms; }
+.claim-item.is-selected .ci-box { background: var(--lime); border-color: var(--lime); }
+.claim-item.is-selected .ci-box svg { stroke-dashoffset: 0; }
+.ci-input:focus-visible ~ .ci-box { outline: 2px solid var(--accent); outline-offset: 3px; }
+.ci-main { min-width: 0; }
+.ci-name { display: block; font-size: 15px; font-weight: 650; line-height: 1.25; overflow-wrap: anywhere; }
+.ci-meta { display: flex; flex-wrap: wrap; gap: 2px 10px; margin-top: 3px; font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ci-price { font-size: 15.5px; font-weight: 750; font-variant-numeric: tabular-nums; text-align: right; }
+@media (hover: hover) {
+  .claim-item:hover { translate: 0 -1px; border-color: var(--lime-edge); box-shadow: var(--card-shadow-hover); }
+}
+.claim-item:active { scale: .992; transition-duration: 90ms; }
+.claim-footnote { margin: 12px 2px 0; font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+
+.claim-summary {
+  position: sticky; top: 90px; padding: 20px; border: 1px solid var(--glass-border); border-radius: var(--r-card);
+  background: var(--glass-strong); box-shadow: var(--card-shadow);
+}
+.cs-title { margin: 0 0 12px; font-size: 17px; font-weight: 700; letter-spacing: -.01em; overflow-wrap: anywhere; }
+.cs-lines { display: grid; gap: 8px; }
+.cs-line { display: flex; justify-content: space-between; gap: 12px; font-size: 13.5px; color: var(--ink-secondary); }
+.cs-line strong, .cs-total strong { font-variant-numeric: tabular-nums; color: var(--ink); }
+.cs-total { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 14px 0; padding-top: 14px; border-top: 1px solid var(--line); font-size: 13.5px; font-weight: 600; }
+.cs-total strong { font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
+.cs-submit { width: 100%; min-height: 48px; border-radius: 14px; font-weight: 700; }
+.cs-submit:disabled { opacity: .5; cursor: not-allowed; }
+.cs-hint { margin: 10px 0 0; text-align: center; font-size: 12.5px; color: var(--muted); }
+
+.claim-result { min-width: 0; }
+.claim-result:empty { display: none; }
+.claim-result:focus { outline: none; }
+.claim-done { padding: 18px; border: 1px solid var(--lime-edge); border-radius: var(--r-card); background: var(--lime-wash); box-shadow: var(--card-shadow); }
+.cd-head { display: flex; gap: 14px; align-items: flex-start; }
+.cd-head h3 { margin: 0 0 2px; font-size: 16px; font-weight: 700; }
+.cd-head h3:focus { outline: none; }
+.cd-head p { margin: 0; font-size: 13px; color: var(--ink-secondary); }
+.cd-check { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: 50%; background: var(--lime); }
+.cd-check svg { width: 22px; height: 22px; fill: none; stroke: var(--on-lime); stroke-width: 2.8; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 0; }
+.claim-done textarea { display: block; width: 100%; margin: 14px 0; padding: 10px 12px; border-radius: var(--r-inner); font: 12px/1.5 var(--font-mono, ui-monospace, monospace); resize: vertical; }
+.cd-send { width: 100%; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .assign-page.is-entering :is(.assign-who, .claim-section-title, .claim-item),
+  .claim-page :is(.claim-head, .claim-who, .claim-section-title, .claim-item, .claim-summary) { animation: ss-rise 420ms var(--claim-ease) backwards; animation-delay: calc(var(--i, 0) * 45ms); }
+  .claim-page .claim-item.is-selected .ci-box { animation: ss-pop 280ms var(--claim-ease); }
+  .claim-page .claim-person input:checked + .cp-body .cp-avatar { animation: ss-pop 280ms var(--claim-ease); }
+  .claim-done { animation: ss-rise 360ms var(--claim-ease) backwards; }
+  .cd-check { animation: ss-pop 360ms var(--claim-ease) 80ms backwards; }
+  .cd-check svg { animation: ss-draw 380ms ease 200ms backwards; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html .assign-page .assignment-item, .claim-page *, .claim-page *::before, .assign-page .claim-item, .assign-page .claim-person { animation: none !important; transition: none !important; translate: none !important; scale: none !important; }
+}
+
+@media (max-width: 960px) {
+  .claim-layout { grid-template-columns: minmax(0, 1fr); }
+  .claim-summary {
+    position: static; padding: 16px;
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 14px; align-items: center;
+  }
+  .cs-title { grid-column: 1 / -1; margin: 0; font-size: 15px; }
+  .cs-lines { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 2px 14px; }
+  .cs-line { gap: 6px; font-size: 12.5px; }
+  .cs-total { margin: 0; padding: 0; border: 0; display: grid; gap: 0; justify-content: start; }
+  .cs-total strong { font-size: 22px; }
+  .cs-submit { width: auto; min-width: 150px; min-height: 48px; padding-inline: 18px; }
+  .cs-hint { grid-column: 1 / -1; margin: 0; }
+  .claim-summary[data-ready="true"] .cs-hint { display: none; }
+}
+@media (max-width: 640px) {
+  .claim-head { grid-template-columns: minmax(0, 1fr); padding: 18px 16px; }
+  .claim-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .claim-facts > div { min-width: 0; padding: 8px 10px; }
+  .claim-facts dd { font-size: 15px; }
+  .cb-label { white-space: normal; text-align: right; }
+  .claim-grid, .assign-page .assignment-grid { grid-template-columns: minmax(0, 1fr); }
+  .claim-item { padding: 14px; gap: 12px; }
+  .cs-title { display: none; }
+}
+@media (max-width: 380px) {
+  .claim-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .claim-summary { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .cs-total { display: flex; justify-content: space-between; align-items: baseline; }
+  .cs-total strong { font-size: 20px; }
+  .cs-submit { width: 100%; min-width: 0; }
+  .topbar .breadcrumb { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .topbar .button { white-space: nowrap; }
+}
+
+html .app-shell:has(.claim-page), html .main:has(.claim-page) { overflow: clip; }
+
+
+.assign-split { display: grid; gap: 22px; margin-bottom: 18px; }
+.assign-who legend { font-size: 15px; font-weight: 700; }
+.ap-person { font: inherit; background: none; border: 0; padding: 0; text-align: left; color: inherit; touch-action: manipulation; }
+.ap-person:focus-visible .cp-body { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ap-person.is-selected .cp-body { background: var(--lime); border-color: var(--lime); color: var(--on-lime); box-shadow: 0 0 0 3px color-mix(in srgb, var(--lime) 30%, transparent); }
+.ap-person.is-selected .cp-avatar { background: rgba(21, 28, 14, .16); color: var(--on-lime); }
+.claim-people.has-selection .ap-person:not(.is-selected) .cp-body { opacity: .78; }
+@media (hover: hover) { .ap-person:not(.is-selected):hover .cp-body { opacity: 1; border-color: var(--accent); translate: 0 -1px; } }
+.ap-count { display: grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; font-size: 11.5px; font-weight: 750; font-variant-numeric: tabular-nums;
+  background: color-mix(in srgb, var(--ink) 12%, transparent); }
+.ap-person.is-selected .ap-count { background: rgba(21, 28, 14, .18); }
+
+.assign-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); }
+.assign-row { cursor: pointer; align-items: start; }
+.assign-row .ci-box { margin-top: 2px; }
+.ar-hit { background: transparent; border: 0; padding: 0; appearance: none; -webkit-appearance: none; border-radius: inherit; }
+.ar-status { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; margin-top: 7px; font-size: 12.5px; color: var(--muted); }
+.ar-status .ai-status { font-weight: 650; }
+.ar-side { display: grid; justify-items: end; gap: 8px; align-self: start; }
+.assign-row .ai-unroll { position: relative; z-index: 2; }
+.assign-row .ci-meta { align-items: center; }
+.assign-row .pill { font-size: 11px; padding: 1px 8px; }
+.assign-row:not(.is-selected)[data-state="solo"], .assign-row:not(.is-selected)[data-state="shared"] { border-color: color-mix(in srgb, var(--lime) 28%, var(--glass-border)); }
+.assign-row.is-dnd-src, .claim-item.is-dnd-src, .claim-person.is-dnd-src, .ap-person.is-dnd-src { opacity: .72; scale: .985; transition: opacity 120ms, scale 120ms; }
+
+.gas-responses-panel { margin: 24px 0; padding: 20px; width: 100%; box-sizing: border-box; overflow-wrap: anywhere; }
+.gas-responses-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+.gas-update-button { flex: 0 0 auto; }
+.gas-response-card { margin-top: 14px; padding: 16px; border: 1px solid var(--line, #ddd); box-shadow: none; }
+.gas-response-card h3 { margin: 0 0 8px; }
+.gas-response-field { margin-top: 10px; overflow-wrap: anywhere; }
+.share-personal-tools { display: grid; gap: 10px; margin: 18px 0 4px; padding: 16px; border: 1px solid var(--line, #ddd); border-radius: var(--r-card, 14px); }
+.share-personal-tools h3, .share-personal-tools p { margin: 0; }
+.share-personal-tools select, .personal-link-result input { width: 100%; min-width: 0; }
+.claim-person.is-locked { cursor: default; }
+.claim-person.is-locked input { pointer-events: none; }
+.claim-person.is-locked .cp-body { opacity: 1; }

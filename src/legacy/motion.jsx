@@ -1,392 +1,406 @@
-/**
- * SplitSmart — Advanced theme helpers (presentation only).
- *
- * Does NOT touch app state, money math, or app.js. It only observes the DOM that app.js renders and adds:
- *   1. a sliding active-indicator in the sidebar nav,
- *   2. a workflow progress indicator managed by the React shell,
- *   3. data-screen on #app (used by CSS for the receipt look) and a staggered reveal on real view changes,
- *   4. count-up on grand totals / settlement amounts (final text is always restored exactly),
- *   5. letter-by-letter headline reveal + one light sweep,
- *   6. pointer effects (desktop only): spotlight cards, cursor glow, magnetic primary buttons, receipt tilt,
- *   7. ripple on buttons/chips, a pop on the chip you just toggled,
- *   8. a confetti burst when a settlement plan is generated or a claim is applied.
- *
- * Everything animated is skipped when prefers-reduced-motion is set, pointer effects need a fine pointer,
- * and NOTHING heavy runs on the guest claim screen (#data= links).
- *
- * The techniques (cursor spotlight, magnetic hover, split-text reveal, border beam, count-up, ripple, confetti)
- * are well-known web-motion patterns; this file is an original vanilla implementation, no third-party code copied.
- */
-(function () {
-  'use strict';
+const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+const finePointer = window.matchMedia('(hover: hover) and (pointer: fine)');
+const $ = (s, r = document) => r.querySelector(s);
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 
-  var app = document.getElementById('app');
-  var nav = document.querySelector('.nav');
-  var crumb = document.getElementById('breadcrumb');
-  var toastRegion = document.getElementById('toast-region');
-  var root = document.documentElement;
-  if (!app) return;
+function hideBoot() {
+  const el = $('#boot-loader');
+  if (!el) return;
+  el.classList.add('is-done');
+  setTimeout(() => el.remove(), 400);
+}
+if (document.readyState === 'complete') requestAnimationFrame(hideBoot);
+else window.addEventListener('load', () => requestAnimationFrame(hideBoot), { once: true });
 
-  var reduceMq = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
-  var fineMq = window.matchMedia ? window.matchMedia('(hover: hover) and (pointer: fine)') : null;
-  function reduced() {
-    return !!(reduceMq && reduceMq.matches);
-  }
-  function fine() {
-    return !!(fineMq && fineMq.matches);
-  }
-  function isClaim() {
-    return window.location.hash.indexOf('#data=') === 0;
-  }
-  function fxOn() {
-    return !reduced() && !isClaim();
-  }
-
-  // ---- breadcrumb text (set by app.js setNav) -> view key ----
-  var VIEW_BY_TITLE = {
-    Overview: 'dashboard',
-    Groups: 'groups',
-    'New Bill': 'bill',
-    Assign: 'assign',
-    'Review Shares': 'breakdown',
-    'Settle Up': 'settlements',
-    Settings: 'settings',
-    'Claim Your Items': 'claim',
+function initHalo() {
+  if (!finePointer.matches || reduced.matches) return;
+  const halo = document.createElement('div');
+  halo.className = 'cursor-halo';
+  halo.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(halo);
+  let tx = -100, ty = -100, x = tx, y = ty, raf = 0, shown = false;
+  const loop = () => {
+    x += (tx - x) * 0.22; y += (ty - y) * 0.22;
+    halo.style.transform = `translate3d(${x - 18}px, ${y - 18}px, 0)`;
+    raf = Math.abs(tx - x) + Math.abs(ty - y) > 0.1 ? requestAnimationFrame(loop) : 0;
   };
-  var FLOW = [
-    { key: 'bill', label: 'Bill' },
-    { key: 'assign', label: 'Assign' },
-    { key: 'breakdown', label: 'Shares' },
-    { key: 'settlements', label: 'Settle' },
-  ];
+  const move = (px, py) => {
+    tx = px; ty = py;
+    if (!shown) { shown = true; x = px; y = py; halo.classList.add('is-visible'); }
+    if (!raf) raf = requestAnimationFrame(loop);
+  };
+  window.addEventListener('pointermove', e => { if (e.pointerType === 'mouse') move(e.clientX, e.clientY); }, { passive: true });
+  document.addEventListener('dragover', e => { halo.classList.add('is-dragging'); move(e.clientX, e.clientY); }, { passive: true });
+  document.addEventListener('dragend', () => halo.classList.remove('is-dragging'), true);
+  document.addEventListener('drop', () => halo.classList.remove('is-dragging'), true);
+  document.addEventListener('pointerover', e => {
+    halo.classList.toggle('is-hot', !!e.target.closest?.('a, button, [data-dnd], .metric-card, [data-action], .wheel-item'));
+  }, { passive: true });
+  document.documentElement.addEventListener('pointerleave', () => { shown = false; halo.classList.remove('is-visible'); });
+}
 
-  function currentView() {
-    var t = crumb ? crumb.textContent.trim() : '';
-    return VIEW_BY_TITLE[t] || 'dashboard';
-  }
+const ROW = 56; 
 
-  // ---- 1. Sliding nav indicator ----
-  var indicator = null;
-  function initIndicator() {
-    if (!nav) return;
-    indicator = document.createElement('span');
-    indicator.className = 'nav-indicator';
-    indicator.setAttribute('aria-hidden', 'true');
-    nav.insertBefore(indicator, nav.firstChild);
-    nav.classList.add('has-indicator');
-    placeIndicator(true);
-    new MutationObserver(function (records) {
-      // Ignore our own indicator's class changes (would loop forever).
-      for (var i = 0; i < records.length; i++) {
-        if (records[i].target !== indicator) {
-          placeIndicator(false);
-          return;
-        }
+function createWheel(wheel, track, rows, onActive) {
+  const n = rows.length, max = (n - 1) * ROW;
+  const fit = n * ROW <= 236; let fitActive = 0;
+  wheel.classList.toggle('is-fit', fit);
+  let raw = 0, vel = 0, mode = 'idle', snapTarget = 0, raf = 0, last = 0, active = -1;
+  let dragging = false, moved = 0, lastY = 0, downRow = null, samples = [], snapTimer = 0;
+  const rubber = p => (p < 0 ? p * 0.35 : p > max ? max + (p - max) * 0.35 : p);
+
+  function paint() {
+    if (fit) {
+      track.style.transform = '';
+      rows.forEach(r => { r.style.transform = ''; r.style.opacity = ''; });
+      if (fitActive !== active) {
+        active = fitActive;
+        rows.forEach((r, i) => { r.classList.toggle('is-active', i === active); r.setAttribute('aria-selected', String(i === active)); });
+        wheel.setAttribute('aria-activedescendant', rows[active].id);
+        onActive?.(active);
       }
-    }).observe(nav, { attributes: true, attributeFilter: ['class'], subtree: true });
-    window.addEventListener('resize', function () {
-      placeIndicator(true);
-    });
-  }
-  function placeIndicator(instant) {
-    if (!indicator) return;
-    var active = nav.querySelector('.nav-link.active');
-    if (!active) {
-      if (indicator.classList.contains('ready')) indicator.classList.remove('ready');
       return;
     }
-    if (instant || reduced()) indicator.style.transition = 'none';
-    indicator.style.height = active.offsetHeight + 'px';
-    indicator.style.transform = 'translateY(' + active.offsetTop + 'px)';
-    if (instant || reduced()) {
-      void indicator.offsetHeight; // flush, then re-enable CSS transition
-      indicator.style.transition = '';
+    const p = rubber(raw);
+    track.style.transform = `translate3d(0, ${-p}px, 0)`;
+    for (let i = 0; i < n; i++) {
+      const d = (i * ROW - p) / ROW, a = Math.abs(d);
+      rows[i].style.transform = `perspective(600px) rotateX(${clamp(-d * 14, -34, 34)}deg) scale(${Math.max(0.72, 1 - 0.1 * a)})`;
+      rows[i].style.opacity = Math.max(0.45, 1 - 0.22 * a);
     }
-    if (!indicator.classList.contains('ready')) indicator.classList.add('ready');
-  }
-
-  // Flow progress is rendered by React in src/components/FlowProgress.jsx.
-
-  // ---- 4. Count-up (Indian grouping, mirrors algorithm.js formatCurrency) ----
-  function formatPaise(p) {
-    var sign = p < 0 ? '-' : '';
-    var abs = Math.abs(p);
-    var r = String(Math.floor(abs / 100));
-    var pp = String(abs % 100).padStart(2, '0');
-    if (r.length > 3) r = r.slice(0, -3).replace(/\B(?=(\d{2})+(?!\d))/g, ',') + ',' + r.slice(-3);
-    return sign + '₹' + r + '.' + pp;
-  }
-  function countUp(el) {
-    var finalText = el.textContent.trim();
-    var m = /^(-?)₹([\d,]+)\.(\d{2})$/.exec(finalText);
-    if (!m) return;
-    var target =
-      (m[1] ? -1 : 1) * (parseInt(m[2].replace(/,/g, ''), 10) * 100 + parseInt(m[3], 10));
-    if (formatPaise(target) !== finalText) return; // only animate what we can reproduce exactly
-    if (Math.abs(target) < 100) return;
-    var start = performance.now();
-    var dur = 900;
-    function tick(now) {
-      var t = Math.min(1, (now - start) / dur);
-      var eased = 1 - Math.pow(1 - t, 4);
-      el.textContent = t < 1 ? formatPaise(Math.round(target * eased)) : finalText;
-      if (t < 1) requestAnimationFrame(tick);
-      else {
-        el.classList.add('count-done');
-        setTimeout(function () {
-          el.classList.remove('count-done');
-        }, 700);
-      }
-    }
-    requestAnimationFrame(tick);
-  }
-  function runCounts() {
-    Array.prototype.forEach.call(
-      app.querySelectorAll('.settlement-amount, .total-line.grand .amount'),
-      countUp,
-    );
-  }
-
-  // ---- 5. Headline reveal: split into letters (aria-label keeps the real text), then one light sweep ----
-  function splitHeading() {
-    var h1 = app.querySelector('.page-head h1');
-    if (!h1 || h1.children.length) return;
-    var text = h1.textContent;
-    if (!text || text.length > 40) return;
-    h1.setAttribute('aria-label', text);
-    h1.textContent = '';
-    var i = 0;
-    text.split('').forEach(function (ch) {
-      var s = document.createElement('span');
-      s.className = 'fx-char';
-      s.setAttribute('aria-hidden', 'true');
-      s.style.setProperty('--i', String(i++));
-      s.textContent = ch;
-      h1.appendChild(s);
-    });
-    var total = 700 + text.length * 26;
-    setTimeout(function () {
-      if (!h1.isConnected) return;
-      h1.textContent = text; // restore plain text (clean DOM for the sweep + screen readers)
-      h1.removeAttribute('aria-label');
-      h1.classList.add('fx-shine');
-    }, total);
-  }
-
-  // ---- 3. View change handling ----
-  var lastView = null;
-  var enterTimer = null;
-  var pendingChip = null; // which chip the user just toggled
-  function onRender() {
-    var claim = isClaim();
-    var view = claim ? 'claim' : currentView();
-    root.classList.toggle('is-claim', claim);
-    app.dataset.screen = view; // NOT data-view: app.js routes clicks on any [data-view] ancestor
-
-    // stagger index for rows/cards (used by CSS delays)
-    Array.prototype.forEach.call(
-      app.querySelectorAll('.settlement, details.breakdown-item, .list-row, .assignment-item'),
-      function (el) {
-        var idx = Array.prototype.indexOf.call(el.parentNode.children, el);
-        el.style.setProperty('--r', String(Math.min(idx, 10)));
-      },
-    );
-
-    if (pendingChip && fxOn()) {
-      var c = app.querySelector(
-        '.chip[data-item-id="' +
-          pendingChip.item +
-          '"][data-member-id="' +
-          pendingChip.member +
-          '"]',
-      );
-      pendingChip = null;
-      if (c) {
-        c.classList.add('just-toggled');
-        setTimeout(function () {
-          c.classList.remove('just-toggled');
-        }, 600);
-      }
-    }
-
-    if (view !== lastView) {
-      lastView = view;
-      if (fxOn()) {
-        app.classList.add('view-enter');
-        clearTimeout(enterTimer);
-        enterTimer = setTimeout(function () {
-          app.classList.remove('view-enter');
-        }, 1500);
-        splitHeading();
-        runCounts();
-      }
+    const idx = clamp(Math.round(p / ROW), 0, n - 1);
+    if (idx !== active) {
+      active = idx;
+      rows.forEach((r, i) => { r.classList.toggle('is-active', i === idx); r.setAttribute('aria-selected', String(i === idx)); });
+      wheel.setAttribute('aria-activedescendant', rows[idx].id);
+      onActive?.(idx);
     }
   }
 
-  // ---- 6. Pointer effects (fine pointers only) ----
-  var raf = 0,
-    lastEv = null;
-  function onMove(e) {
-    lastEv = e;
-    if (raf) return;
-    raf = requestAnimationFrame(function () {
-      raf = 0;
-      var ev = lastEv;
-      if (!fxOn() || !fine()) return;
-      root.style.setProperty('--gx', ev.clientX + 'px');
-      root.style.setProperty('--gy', ev.clientY + 'px');
-
-      var card = ev.target.closest ? ev.target.closest('.panel, .hero, .settlement') : null;
-      var prev = document.querySelector('.spot');
-      if (prev && prev !== card) prev.classList.remove('spot');
-      if (card) {
-        var r = card.getBoundingClientRect();
-        card.style.setProperty('--mx', ev.clientX - r.left + 'px');
-        card.style.setProperty('--my', ev.clientY - r.top + 'px');
-        card.classList.add('spot');
-      }
-
-      // magnetic primary buttons: they lean toward the pointer
-      var btn = ev.target.closest ? ev.target.closest('.button-primary') : null;
-      var prevBtn = document.querySelector('.button-primary.mag');
-      if (prevBtn && prevBtn !== btn) {
-        prevBtn.classList.remove('mag');
-        prevBtn.style.removeProperty('--tx');
-        prevBtn.style.removeProperty('--ty');
-      }
-      if (btn) {
-        var b = btn.getBoundingClientRect();
-        var dx = (ev.clientX - (b.left + b.width / 2)) / (b.width / 2);
-        var dy = (ev.clientY - (b.top + b.height / 2)) / (b.height / 2);
-        btn.classList.add('mag');
-        btn.style.setProperty('--tx', (dx * 5).toFixed(1) + 'px');
-        btn.style.setProperty('--ty', (dy * 3).toFixed(1) + 'px');
-      }
-
-      // receipt tilt: only on the breakdown/settlement receipts, and never while over a control
-      var screen = app.dataset.screen;
-      var rec =
-        (screen === 'breakdown' || screen === 'settlements') && ev.target.closest
-          ? ev.target.closest('.panel')
-          : null;
-      var prevTilt = document.querySelector('.panel.tilt');
-      if (prevTilt && prevTilt !== rec) {
-        prevTilt.classList.remove('tilt');
-        prevTilt.style.removeProperty('--rx');
-        prevTilt.style.removeProperty('--ry');
-      }
-      if (rec) {
-        var overControl = ev.target.closest('button, a, input, select, textarea, summary, label');
-        var pr = rec.getBoundingClientRect();
-        rec.classList.add('tilt');
-        if (overControl) {
-          rec.style.setProperty('--rx', '0deg');
-          rec.style.setProperty('--ry', '0deg');
-        } else {
-          rec.style.setProperty(
-            '--rx',
-            ((0.5 - (ev.clientY - pr.top) / pr.height) * 2.4).toFixed(2) + 'deg',
-          );
-          rec.style.setProperty(
-            '--ry',
-            (((ev.clientX - pr.left) / pr.width - 0.5) * 2.4).toFixed(2) + 'deg',
-          );
-        }
-      }
-    });
+  function step(t) {
+    const dt = Math.min(0.032, (t - last) / 1000 || 0.016);
+    last = t;
+    if (mode === 'fling') {
+      vel *= Math.pow(0.0245, dt);              
+      raw += vel * dt;
+      if (raw < 0 || raw > max || Math.abs(vel) < 140) snap();
+    }
+    if (mode === 'snap') {                      
+      const k = 300, c = 2 * 0.78 * Math.sqrt(k);
+      vel += (-k * (raw - snapTarget) - c * vel) * dt;
+      raw += vel * dt;
+      if (Math.abs(raw - snapTarget) < 0.3 && Math.abs(vel) < 8) { raw = snapTarget; vel = 0; mode = 'idle'; }
+    }
+    paint();
+    raf = mode === 'idle' ? 0 : requestAnimationFrame(step);
   }
-  document.addEventListener('pointermove', onMove, { passive: true });
-  root.addEventListener('mouseleave', function () {
-    ['.spot', '.button-primary.mag', '.panel.tilt'].forEach(function (sel) {
-      var el = document.querySelector(sel);
-      if (el) {
-        el.classList.remove('spot', 'mag', 'tilt');
-        el.style.removeProperty('--tx');
-        el.style.removeProperty('--ty');
-        el.style.removeProperty('--rx');
-        el.style.removeProperty('--ry');
-      }
-    });
+  function kick() { if (!raf) { last = performance.now(); raf = requestAnimationFrame(step); } }
+  function snap(idx) {
+    if (fit) { if (idx != null) fitActive = clamp(idx, 0, n - 1); paint(); return; }
+    snapTarget = clamp(idx ?? Math.round(raw / ROW), 0, n - 1) * ROW;
+    if (reduced.matches) { raw = snapTarget; vel = 0; mode = 'idle'; paint(); return; }
+    mode = 'snap'; kick();
+  }
+  function stop() { mode = 'idle'; if (raf) cancelAnimationFrame(raf); raf = 0; }
+
+  const ac = new AbortController();
+  const opt = { signal: ac.signal };
+  wheel.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return;
+    stop(); vel = 0; dragging = true; moved = 0; lastY = e.clientY;
+    downRow = e.target.closest('.wheel-item');
+    samples = [{ t: e.timeStamp, y: e.clientY }];
+    wheel.setPointerCapture(e.pointerId);
+  }, opt);
+  wheel.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    const dy = e.clientY - lastY; lastY = e.clientY; moved += Math.abs(dy);
+    if (fit) return;
+    raw = clamp(raw - dy, -ROW * 3, max + ROW * 3);
+    samples.push({ t: e.timeStamp, y: e.clientY });
+    while (samples.length > 2 && e.timeStamp - samples[0].t > 100) samples.shift();
+    paint();
+  }, opt);
+  const release = (e, cancelled) => {
+    if (!dragging) return;
+    dragging = false;
+    if (!cancelled && moved < 6 && downRow) { wheel.dispatchEvent(new CustomEvent('wheel-tap', { detail: rows.indexOf(downRow) })); return; }
+    if (fit) return;
+    const a = samples[0], b = samples[samples.length - 1];
+    const dt = (b.t - a.t) / 1000;
+    vel = dt > 0 && e.timeStamp - b.t < 80 ? clamp((a.y - b.y) / dt, -4000, 4000) : 0;
+    if (reduced.matches) return snap();
+    if (Math.abs(vel) > 300 && raw >= 0 && raw <= max) { mode = 'fling'; kick(); } else snap();
+  };
+  wheel.addEventListener('pointerup', e => release(e, false), opt);
+  wheel.addEventListener('pointercancel', e => release(e, true), opt);
+  wheel.addEventListener('wheel', e => {            // mouse wheel / trackpad
+    e.preventDefault();
+    if (fit) return;
+    stop(); vel = 0;
+    raw = clamp(raw + e.deltaY * (e.deltaMode === 1 ? 20 : 0.9), -ROW * 0.8, max + ROW * 0.8);
+    paint();
+    clearTimeout(snapTimer); snapTimer = setTimeout(() => snap(), 110);
+  }, { passive: false, signal: ac.signal });
+
+  paint();
+  return {
+    get active() { return active; },
+    goTo: i => snap(i),
+    nudge(dy) { if (fit) return; stop(); vel = 0; raw = clamp(raw + dy, 0, max); paint(); },
+    settle: () => snap(),
+    destroy() { stop(); clearTimeout(snapTimer); ac.abort(); }
+  };
+}
+
+let bubble = null;
+let drag = null;
+let suppressClickUntil = 0;
+const SCOPE = '.assign-page, .claim-page';
+const initialOf = n => (String(n).trim()[0] || '?').toUpperCase();
+const membersOf = el => { try { return JSON.parse(el.dataset.members || '[]'); } catch { return []; } };
+const itemEl = id => document.querySelector(`[data-dnd="item"][data-item-id="${CSS.escape(id)}"]`);
+const isAssigned = r => { const it = itemEl(r.itemId); return !!it && membersOf(it).includes(r.memberId); };
+
+function buildRows(kind, src) {
+  const root = src.closest(SCOPE) || document;
+  if (kind === 'items') {
+    return [...root.querySelectorAll('[data-dnd="item"]')].map(el => ({
+      itemId: el.dataset.itemId, memberId: src.dataset.personId, label: el.dataset.itemName, amount: el.dataset.itemAmount }));
+  }
+  return [...root.querySelectorAll('[data-dnd="person"]')].map(el => ({
+    itemId: src.dataset.itemId, memberId: el.dataset.personId, label: el.dataset.personName, avatar: initialOf(el.dataset.personName) }));
+}
+
+const CIRCLE_R = 24, PANEL_R = 30;
+const geo = (w, h, cx, cy) => ({
+  circle: { top: `${cy - CIRCLE_R}px`, left: `${cx - CIRCLE_R}px`, right: `${w - cx - CIRCLE_R}px`, bottom: `${h - cy - CIRCLE_R}px`, borderRadius: `${CIRCLE_R}px` },
+  full: { top: '0px', left: '0px', right: '0px', bottom: '0px', borderRadius: `${PANEL_R}px` }
+});
+
+function closePopup(restoreFocus = true) {
+  if (!bubble) return;
+  const b = bubble; bubble = null;
+  b.wheel.destroy();
+  document.removeEventListener('keydown', b.onKey, true);
+  document.removeEventListener('pointerdown', b.onOutside, true);
+  cancelAnimationFrame(b.loop);
+  b.el.classList.add('is-closing');
+  if (reduced.matches) { b.el.remove(); b.scrim.remove(); }
+  else {
+    b.glass.getAnimations().forEach(a => a.cancel());
+    b.glass.animate([{ ...b.g.full, opacity: 1, transform: 'scale(1)' }, { ...b.g.circle, opacity: 0, transform: 'scale(.5)' }],
+      { duration: 240, easing: 'cubic-bezier(.5,0,.75,0)', fill: 'forwards' });
+    b.body.animate([{ opacity: 1, filter: 'blur(0px)' }, { opacity: 0, filter: 'blur(8px)' }], { duration: 110, fill: 'forwards' });
+    b.scrim.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 240, fill: 'forwards' });
+    setTimeout(() => { b.el.remove(); b.scrim.remove(); }, 250);
+  }
+  if (restoreFocus && b.opener && document.contains(b.opener)) b.opener.focus({ preventScroll: true });
+}
+
+function openPopup(src, x, y, { mode = 'pick' } = {}) {
+  closePopup(false);
+  const kind = src.dataset.dnd === 'person' ? 'items' : 'people';
+  const rows = buildRows(kind, src);
+  if (!rows.length) return null;
+  const inAssign = !!src.closest('.assign-page');
+  const srcName = src.dataset.personName || src.dataset.itemName || '';
+
+  const scrim = document.createElement('div');
+  scrim.className = 'gp-scrim'; scrim.setAttribute('aria-hidden', 'true');
+  scrim.style.setProperty('--cx', `${x}px`); scrim.style.setProperty('--cy', `${y}px`);
+
+  const el = document.createElement('div');
+  el.className = 'food-bubble';
+  el.setAttribute('role', 'dialog');
+  el.setAttribute('aria-label', kind === 'items' ? `Dishes for ${srcName}` : `People for ${srcName}`);
+  const glass = document.createElement('div'); glass.className = 'gp-glass'; glass.setAttribute('aria-hidden', 'true');
+  const body = document.createElement('div'); body.className = 'gp-body';
+  const title = document.createElement('p'); title.className = 'bubble-title';
+  title.textContent = kind === 'items' ? `${srcName} ${inAssign ? 'takes' : 'claims'}…` : (inAssign ? `Who shared ${srcName}?` : `Who’s claiming ${srcName}?`);
+  const wheelEl = document.createElement('div');
+  wheelEl.className = 'wheel'; wheelEl.tabIndex = 0; wheelEl.setAttribute('role', 'listbox');
+  wheelEl.setAttribute('aria-label', kind === 'items' ? 'Dishes' : 'People');
+  const track = document.createElement('div'); track.className = 'wheel-track';
+
+  const rowEls = rows.map((r, i) => {
+    const d = document.createElement('div');
+    d.className = 'wheel-item'; d.id = `wheel-opt-${i}`; d.setAttribute('role', 'option'); d.setAttribute('aria-selected', 'false');
+    if (r.avatar) { const av = document.createElement('span'); av.className = 'wi-avatar'; av.textContent = r.avatar; av.setAttribute('aria-hidden', 'true'); d.appendChild(av); }
+    const nm = document.createElement('span'); nm.className = 'wi-name'; nm.textContent = r.label; d.appendChild(nm);
+    if (r.amount) { const am = document.createElement('span'); am.className = 'wi-amt'; am.textContent = r.amount; d.appendChild(am); }
+    const tick = document.createElement('span'); tick.className = 'wi-tick'; tick.setAttribute('aria-hidden', 'true');
+    tick.innerHTML = '<svg viewBox="0 0 24 24"><path d="m5 12.5 4.2 4.2L19 7"/></svg>'; d.appendChild(tick);
+    track.appendChild(d); return d;
   });
+  wheelEl.appendChild(track);
+  body.append(title, wheelEl);
+  const hint = document.createElement('p'); hint.className = 'bubble-hint';
+  hint.textContent = mode === 'drag' ? 'Drop on a row, or scroll and tap · Esc closes' : 'Scroll or drag · Enter or tap · Esc closes';
+  body.appendChild(hint);
+  el.append(glass, body);
+  document.body.append(scrim, el);
 
-  // ---- 7. Ripple + chip tracking (capture phase: runs before app.js re-renders) ----
-  document.addEventListener(
-    'pointerdown',
-    function (e) {
-      if (!fxOn() || !e.target.closest) return;
-      var host = e.target.closest('.button, .chip, .tab');
-      if (!host || host.disabled) return;
-      var r = host.getBoundingClientRect();
-      var size = Math.max(r.width, r.height) * 2.2;
-      var s = document.createElement('span');
-      s.className = 'fx-ripple';
-      s.style.width = s.style.height = size + 'px';
-      s.style.left = e.clientX - r.left - size / 2 + 'px';
-      s.style.top = e.clientY - r.top - size / 2 + 'px';
-      host.appendChild(s);
-      setTimeout(function () {
-        if (s.parentNode) s.parentNode.removeChild(s);
-      }, 700);
-    },
-    true,
-  );
-  document.addEventListener(
-    'click',
-    function (e) {
-      var chip = e.target.closest && e.target.closest('.chip[data-action="toggle-assignment"]');
-      if (chip) pendingChip = { item: chip.dataset.itemId, member: chip.dataset.memberId };
-    },
-    true,
-  );
-
-  // ---- 8. Confetti burst on success toasts ----
-  function confetti() {
-    if (!fxOn()) return;
-    var box = document.createElement('div');
-    box.className = 'fx-confetti';
-    box.setAttribute('aria-hidden', 'true');
-    box.style.left = Math.round(window.innerWidth * 0.5) + 'px';
-    box.style.top = Math.round(window.innerHeight * 0.32) + 'px';
-    var colors = [
-      'var(--accent-fill)',
-      'var(--saffron)',
-      'var(--success)',
-      'var(--accent-strong)',
-      'var(--saffron-soft)',
-    ];
-    var spread = Math.min(420, window.innerWidth * 0.55);
-    for (var i = 0; i < 46; i++) {
-      var p = document.createElement('i');
-      p.style.setProperty('--c', colors[i % colors.length]);
-      p.style.setProperty('--dx', ((Math.random() - 0.5) * 2 * spread).toFixed(0) + 'px');
-      p.style.setProperty('--uy', (-80 - Math.random() * 160).toFixed(0) + 'px');
-      p.style.setProperty('--dy', (140 + Math.random() * 260).toFixed(0) + 'px');
-      p.style.setProperty('--rot', ((Math.random() - 0.5) * 900).toFixed(0) + 'deg');
-      p.style.animationDelay = (Math.random() * 120).toFixed(0) + 'ms';
-      box.appendChild(p);
-    }
-    document.body.appendChild(box);
-    setTimeout(function () {
-      if (box.parentNode) box.parentNode.removeChild(box);
-    }, 1700);
+  const w = el.offsetWidth, h = el.offsetHeight;
+  let left, top, cx, cy;
+  if (window.innerWidth < 520) {
+    el.classList.add('is-sheet');
+    left = (window.innerWidth - w) / 2; top = window.innerHeight - h - 12; cx = w / 2; cy = h - 40;
+  } else {
+    left = x + 30; if (left + w > window.innerWidth - 8) left = x - 30 - w;
+    left = clamp(left, 8, window.innerWidth - w - 8);
+    top = clamp(y - h / 2, 8, Math.max(8, window.innerHeight - h - 8));
+    el.style.left = `${left}px`; el.style.top = `${top}px`;
+    cx = clamp(x - left, CIRCLE_R + 6, w - CIRCLE_R - 6); cy = clamp(y - top, CIRCLE_R + 6, h - CIRCLE_R - 6);
   }
-  if (toastRegion) {
-    new MutationObserver(function (records) {
-      records.forEach(function (rec) {
-        Array.prototype.forEach.call(rec.addedNodes, function (n) {
-          if (
-            n.nodeType === 1 &&
-            !n.classList.contains('error') &&
-            /Settlement plan generated|applied successfully/i.test(n.textContent)
-          )
-            confetti();
-        });
-      });
-    }).observe(toastRegion, { childList: true });
-  }
+  const g = geo(w, h, cx, cy);
 
-  initIndicator();
-  new MutationObserver(onRender).observe(app, { childList: true });
-  window.addEventListener('hashchange', onRender);
-  onRender();
-})();
+  const refresh = () => rowEls.forEach((d, i) => {
+    const on = isAssigned(rows[i]);
+    d.classList.toggle('is-assigned', on);
+    d.setAttribute('aria-label', `${rows[i].label}${rows[i].amount ? ' ' + rows[i].amount : ''}${on ? ', assigned' : ''}`);
+  });
+  refresh();
+
+  const commit = (i, closeAfter) => {
+    const r = rows[i]; if (!r) return;
+    document.dispatchEvent(new CustomEvent('splitsmart:assign', { detail: { itemId: r.itemId, memberId: r.memberId } }));
+    if (closeAfter) closePopup(false); else refresh();
+  };
+
+  const wheel = createWheel(wheelEl, track, rowEls);
+  const onKey = e => {
+    if (e.key === 'Escape') { e.preventDefault(); closePopup(); return; }
+    if (e.key === 'ArrowDown') { e.preventDefault(); wheel.goTo(wheel.active + 1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); wheel.goTo(wheel.active - 1); }
+    else if (e.key === 'Home') { e.preventDefault(); wheel.goTo(0); }
+    else if (e.key === 'End') { e.preventDefault(); wheel.goTo(rows.length - 1); }
+    else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); commit(wheel.active, false); }
+    else if (e.key === 'Tab') e.preventDefault();   // single focus stop; Esc closes
+  };
+  const onOutside = e => { if (!el.contains(e.target) && !(drag && drag.started)) closePopup(); };
+  bubble = { el, glass, body, scrim, wheel, rows, rowEls, g, commit, refresh, onKey, onOutside, opener: src, loop: 0 };
+  document.addEventListener('keydown', onKey, true);
+  document.addEventListener('pointerdown', onOutside, true);
+  wheelEl.addEventListener('wheel-tap', e => commit(e.detail, false));
+
+  if (!reduced.matches) {
+    glass.animate([
+      { ...g.circle, opacity: 0, transform: 'scale(.3)', offset: 0, easing: 'cubic-bezier(.2,.8,.3,1)' },
+      { ...g.circle, opacity: 1, transform: 'scale(1.3)', offset: .2, easing: 'ease-in-out' },
+      { ...g.circle, opacity: .92, transform: 'scale(.8)', offset: .36, easing: 'cubic-bezier(.2,.9,.25,1.1)' },
+      { ...g.full, opacity: 1, transform: 'scale(1)', offset: 1 }
+    ], { duration: 760, fill: 'both' });
+    body.animate([
+      { opacity: 0, filter: 'blur(14px)', transform: 'translateY(34px) scale(.97, .9)' },
+      { opacity: 1, filter: 'blur(0px)', transform: 'none' }
+    ], { duration: 560, delay: 300, easing: 'cubic-bezier(.2,1.15,.3,1)', fill: 'backwards' });
+    scrim.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 420, fill: 'both' });
+  }
+  wheelEl.focus({ preventScroll: true });
+  return bubble;
+}
+
+const rowUnder = (x, y) => {
+  const r = document.elementFromPoint(x, y)?.closest?.('.wheel-item');
+  return r && bubble?.el.contains(r) ? r : null;
+};
+
+function dragFrame() {
+  if (!drag?.started || !bubble) return;
+  const b = bubble, wr = b.el.querySelector('.wheel').getBoundingClientRect();
+  const inside = drag.x > wr.left - 24 && drag.x < wr.right + 24;
+  const EDGE = 64;
+  let speed = 0;                                       
+  if (inside && drag.y > wr.top - 16 && drag.y < wr.top + EDGE) speed = -(1 - (drag.y - wr.top + 16) / (EDGE + 16)) * 520;
+  else if (inside && drag.y < wr.bottom + 16 && drag.y > wr.bottom - EDGE) speed = (1 - (wr.bottom + 16 - drag.y) / (EDGE + 16)) * 520;
+  if (speed) b.wheel.nudge(speed / 60);
+  const hit = rowUnder(drag.x, drag.y);
+  b.rowEls.forEach(r => r.classList.toggle('is-target', r === hit));
+  b.loop = requestAnimationFrame(dragFrame);
+}
+
+function startDrag() {
+  if (!drag || drag.started) return;
+  const b = openPopup(drag.src, drag.x, drag.y, { mode: 'drag' });
+  if (!b) { endDrag(); return; }
+  drag.started = true;
+  drag.src.classList.add('is-dnd-src');
+  document.body.classList.add('is-dnd');
+  const ghost = document.createElement('div');
+  ghost.className = 'dnd-ghost'; ghost.setAttribute('aria-hidden', 'true');
+  ghost.textContent = drag.src.dataset.personName || drag.src.dataset.itemName || '';
+  document.body.appendChild(ghost); drag.ghost = ghost;
+  moveGhost();
+  b.loop = requestAnimationFrame(dragFrame);
+}
+const moveGhost = () => { if (drag?.ghost) drag.ghost.style.transform = `translate3d(${drag.x + 16}px, ${drag.y + 14}px, 0)`; };
+
+function endDrag() {
+  if (!drag) return;
+  clearTimeout(drag.timer);
+  drag.ghost?.remove();
+  drag.src.classList.remove('is-dnd-src');
+  document.body.classList.remove('is-dnd');
+  if (bubble) { cancelAnimationFrame(bubble.loop); bubble.rowEls.forEach(r => r.classList.remove('is-target')); bubble.wheel.settle(); }
+  drag = null;
+}
+
+document.addEventListener('pointerdown', e => {
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  const src = e.target.closest?.('[data-dnd]');
+  if (!src || !src.closest(SCOPE) || e.target.closest('.ai-unroll, a, textarea, .food-bubble')) return;
+  if (drag) endDrag();
+  drag = { src, id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, started: false, touch: e.pointerType === 'touch', timer: 0, ghost: null };
+  if (drag.touch) drag.timer = setTimeout(() => { if (drag && !drag.started) startDrag(); }, 380);   // long-press
+}, true);
+
+document.addEventListener('pointermove', e => {
+  if (!drag || e.pointerId !== drag.id) return;
+  drag.x = e.clientX; drag.y = e.clientY;
+  if (!drag.started) {
+    const dist = Math.hypot(drag.x - drag.x0, drag.y - drag.y0);
+    if (drag.touch) { if (dist > 10) endDrag(); }             
+    else if (dist > 6) { startDrag(); }
+  } else moveGhost();
+}, { passive: true });
+
+const finishPointer = (e, cancelled) => {
+  if (!drag || e.pointerId !== drag.id) return;
+  if (drag.started) {
+    suppressClickUntil = performance.now() + 350;            
+    const hit = !cancelled && bubble ? rowUnder(e.clientX, e.clientY) : null;
+    if (hit) { const i = bubble.rowEls.indexOf(hit); const b = bubble; endDrag(); b.commit(i, true); return; }
+  }
+  endDrag();
+};
+document.addEventListener('pointerup', e => finishPointer(e, false), true);
+document.addEventListener('pointercancel', e => finishPointer(e, true), true);
+document.addEventListener('touchmove', e => { if (drag?.started && e.cancelable) e.preventDefault(); }, { passive: false });
+document.addEventListener('selectstart', e => { if (drag) e.preventDefault(); }, true);
+
+document.addEventListener('click', e => {
+  const src = e.target.closest?.('[data-dnd]');
+  if (!src || !src.closest(SCOPE)) return;
+  if (performance.now() < suppressClickUntil || drag?.started) { e.preventDefault(); e.stopPropagation(); return; }
+  if (e.shiftKey) { e.preventDefault(); e.stopPropagation(); const r = src.getBoundingClientRect(); openPopup(src, r.left + r.width / 2, r.bottom, { mode: 'pick' }); }
+}, true);
+document.addEventListener('contextmenu', e => {
+  const src = e.target.closest?.('[data-dnd]');
+  if (src && src.closest(SCOPE)) { e.preventDefault(); openPopup(src, e.clientX, e.clientY, { mode: 'pick' }); suppressClickUntil = performance.now() + 450; }
+}, true);
+document.addEventListener('keydown', e => {
+  if (bubble) return;
+  const src = e.target.closest?.('[data-dnd]');
+  if (!src || !src.closest(SCOPE)) return;
+  const arrow = e.key === 'ArrowDown' && !!src.closest('.assign-page'); 
+  if (arrow || (e.key === 'Enter' && e.shiftKey)) {
+    e.preventDefault(); e.stopPropagation();
+    const r = src.getBoundingClientRect(); openPopup(src, r.left + r.width / 2, r.bottom, { mode: 'pick' });
+  }
+}, true);
+
+const appEl = $('#app');
+if (appEl) new MutationObserver(() => { if (bubble && !document.querySelector(SCOPE)) closePopup(false); }).observe(appEl, { childList: true });
+
+initHalo();

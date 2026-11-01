@@ -1,16 +1,27 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="SplitSmart — smart group bill splitting, accurate shares and simple UPI settlements." />
-    <title>SplitSmart — Smart Group Expense & Receipt Settlement</title>
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
-    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script type="module" src="/src/main.jsx"></script>
-  </head>
-  <body>
-    <div id="root"></div>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#10130F" />
+  <meta name="description" content="SplitSmart — precise, private bill splitting with exact-paise allocation, settlement planning, UPI payments, and stateless claims." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500..800&display=swap" rel="stylesheet">
+  <title>SplitSmart — Good times. Clear accounts.</title>
+  <script>
+    (function () {
+      try {
+        var s = JSON.parse(localStorage.getItem('splitsmart:v1:settings') || '{}');
+        document.documentElement.setAttribute('data-theme', s.theme === 'dark' ? 'dark' : 'light');
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+  <script defer src="/vendor/lz-string.min.js"></script>
+  <script defer src="/vendor/qrcode.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
 </html>

@@ -1,8 +1,12 @@
+# dependencies and build output
 node_modules/
-dist/*
-!dist/.gitkeep
+dist/
+
+# local environment files (contain the Gemini API key)
 .env
-.env.*
-!.env.example
+.env.local
+.env.*.local
+
+# logs / OS
+*.log
 .DS_Store
-coverage/

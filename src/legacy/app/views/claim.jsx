@@ -1,78 +1,333 @@
-/* eslint-disable react-refresh/only-export-components */
-/**
- * ClaimView prepares the screen markup and renders it inside a React-owned view.
- * data-action attributes are retained for the shared event-delegation controller.
- */
-export function buildClaimMarkup(ctx) {
-  const { decodeShare, esc, formatCurrency } = ctx;
+import { read as readStore, write as writeStore } from '../../state.jsx';
+import { formatCurrency, calculateShares } from '../../algorithm.jsx';
+import { decodeShare } from '../../share.jsx';
+import { $$, $, S, esc, icon } from '../core.jsx';
+import { setNav } from '../router.jsx';
 
+export const expandedClaimItems = new Set();
+
+export const claimMotionOk = () => !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+export const claimDraftKey = p => {
+  const params = new URLSearchParams(window.location.search);
+  const formId = params.get('formId') || 'offline';
+  const claimRound = params.get('claimRound') || '1';
+  return `splitsmart:v2:claim:${formId}:${claimRound}:${p.sessionId}`;
+};
+
+export function claimTotals(p, selectedIds) {
+  const food = p.items.reduce((a, it) => a + it.costPaise, 0);
+  const adj = Number.isInteger(p.adjPaise) ? p.adjPaise : null;
+
+  const selectedItems = p.items.map(it => {
+    const qty = Math.max(1, Math.trunc(Number(it.quantity) || 1));
+    const selectedQty = Array.from({ length: qty }, (_, i) =>
+      selectedIds.has(`${it.id}::unit:${i + 1}`)
+    ).filter(Boolean).length;
+
+    // Also support existing whole-item selections.
+    const wholeSelected = selectedIds.has(it.id);
+    const actualQty = wholeSelected ? qty : selectedQty;
+
+    return {
+      id: it.id,
+      totalPaise: Math.round(it.costPaise * actualQty / qty),
+      assignments: [actualQty > 0 ? 'me' : 'rest']
+    };
+  });
+
+  const subtotal = selectedItems.reduce(
+    (sum, it) => sum + (it.assignments[0] === 'me' ? it.totalPaise : 0),
+    0
+  );
+
+  const out = {
+    food,
+    adj,
+    subtotal,
+    taxShare: 0,
+    estimate: subtotal,
+    grand: adj === null ? null : Math.max(0, food + adj)
+  };
+
+  if (adj === null || subtotal === 0) return out;
+
+  const [me] = calculateShares(
+    selectedItems,
+    [{ id: 'me', name: 'me' }, { id: 'rest', name: 'rest' }],
+    { cgst: Math.max(0, adj) },
+    Math.max(0, -adj)
+  );
+
+  out.subtotal = me.foodPaise;
+  out.taxShare = me.taxDiscountPaise;
+  out.estimate = me.sharePaise;
+
+  return out;
+}
+
+export function claimUnitNote(it) {
+  const qty = Number(it.quantity) || 1;
+  if (qty <= 1) return '';
+  const exact = Number.isInteger(qty) && it.costPaise % qty === 0;
+  return `${exact ? '' : '≈ '}${formatCurrency(Math.round(it.costPaise / qty))} each`;
+}
+
+export function renderClaim() {
   try {
-    ctx.decodedClaimPayload = decodeShare(window.location.hash);
+    S.decodedClaimPayload = decodeShare(window.location.hash);
+    S.decodedClaimParticipant = null;
   } catch (err) {
-    return `
-      <div class="panel" style="max-width:540px;margin:40px auto;text-align:center;">
-        <div style="font-size:36px;margin-bottom:12px;">⚠️</div>
+    $('#app').innerHTML = `
+      <div class="claim-page"><div class="panel claim-error">
+        <div class="claim-warning-icon" aria-hidden="true">${icon('warning')}</div>
         <h2>Invalid or Expired Link</h2>
         <p style="margin-bottom:20px;">${esc(err.message)}</p>
         <a class="button button-primary" href="${esc(window.location.pathname)}">Open SplitSmart Home</a>
-      </div>
+      </div></div>
     `;
+    return;
   }
 
-  const p = ctx.decodedClaimPayload;
+  S.view = 'claim';
+  setNav();
 
-  const itemsHtml = p.items
-    .map(
-      (it) => `
-    <label class="list-row" style="cursor:pointer;padding:12px 6px;">
-      <input type="checkbox" data-claim-item="${esc(it.id)}" style="width:auto;margin-right:12px;">
-      <div class="list-row-main">
-        <div style="font-weight:600;font-size:14.5px;">${esc(it.name)}</div>
-        <div class="quiet" style="font-size:12px;">Qty ${it.quantity}</div>
-      </div>
-      <span class="amount">${formatCurrency(it.costPaise)}</span>
-    </label>
-  `,
-    )
-    .join('');
+  const p = S.decodedClaimPayload;
+  const participantRecords = Array.isArray(p.participantRecords) && p.participantRecords.length
+    ? p.participantRecords
+    : p.participants.map((name, index) => ({ id: `participant-${index + 1}`, name }));
 
-  return `
-    <div style="max-width:620px;margin:0 auto;">
-      <div class="panel" style="background:var(--accent);color:white;border:none;">
-        <h1 style="color:white;font-size:22px;margin-bottom:4px;">${esc(p.outing)}</h1>
-        <p style="color:var(--accent-soft);font-size:13.5px;">Select the items you consumed. This creates a WhatsApp claim message to send to the host.</p>
-      </div>
+  const draft = readStore(claimDraftKey(p), null);
+  const draftUser = draft && typeof draft.user === 'string' && p.participants.includes(draft.user) ? draft.user : '';
+  const draftParticipantId = draft?.participantId || '';
+  const validIds = new Set(p.items.map(i => i.id));
+  const draftIds = new Set(Array.isArray(draft?.ids) ? draft.ids.filter(id => validIds.has(id)) : []);
 
-      <div class="panel">
-        <label style="margin-bottom:18px;">
-          Select Your Name
-          <select id="claimant-name-select" data-validate="claimant" required style="font-size:15px;padding:10px;">
-            <option value="">-- Choose your name --</option>
-            ${p.participants.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join('')}
-          </select>
-        </label>
+  const totals = claimTotals(p, new Set());
+  const totalLabel = totals.grand === null ? 'Items total' : 'Bill total';
+  const totalValue = totals.grand === null ? totals.food : totals.grand;
+  const showTax = totals.adj !== null && totals.adj !== 0;
 
-        <h3 style="font-size:16px;margin-bottom:10px;">Which items did you share?</h3>
-        <div class="list" id="claim-items-list" style="margin-bottom:18px;">
-          ${itemsHtml}
+  const peopleHtml = participantRecords.map((person, i) => {
+    const n = person.name;
+    const selected = draftParticipantId ? person.id === draftParticipantId : n === draftUser;
+    return `
+    <label class="claim-person" style="--i:${Math.min(i, 10)}" data-dnd="person" data-person-id="${esc(person.id)}" data-person-name="${esc(n)}">
+      <input type="radio" name="claimant" value="${esc(n)}" data-participant-id="${esc(person.id)}" data-claimant ${selected ? 'checked' : ''}>
+      <span class="cp-body">
+        <span class="cp-avatar" aria-hidden="true">${esc((n.trim()[0] || '?').toUpperCase())}</span>
+        <span class="cp-name">${esc(n)}</span>
+        <span class="cp-you" aria-hidden="true">You</span>
+      </span>
+    </label>`;
+  }).join('');
+
+
+  const claimDietPill = it => ['VEG', 'NON-VEG', 'ANY'].includes(it.category)
+    ? `<span class="pill ${it.category === 'VEG' ? 'pill-veg' : it.category === 'NON-VEG' ? 'pill-non-veg' : ''}">${esc(it.category)}</span>`
+    : '';
+  const renderClaimItem = (it, i, unitLabel = '') => {
+    const unit = claimUnitNote(it);
+    return `
+    <label class="claim-item" style="--i:${Math.min(i, 10) + 2}" data-dnd="item" data-item-id="${esc(it.id)}" data-item-name="${esc(it.name)}" data-item-amount="${esc(formatCurrency(it.costPaise))}" data-members="[]">
+      <input type="checkbox" class="ci-input" data-claim-item="${esc(it.id)}" ${draftIds.has(it.id) ? 'checked' : ''}>
+      <span class="ci-box" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m5 12.5 4.2 4.2L19 7" pathLength="1"/></svg></span>
+      <span class="ci-main">
+        <span class="ci-name">${esc(it.name)}${unitLabel ? ` <span class="claim-unit-label">${esc(unitLabel)}</span>` : ''}</span>
+        <span class="ci-meta"><span class="ci-qty">${it.quantity > 1 ? `× ${esc(it.quantity)}` : 'Qty 1'}</span>${claimDietPill(it)}${unit ? `<span class="ci-unit">${unit}</span>` : ''}</span>
+      </span>
+      <span class="ci-price">${formatCurrency(it.costPaise)}</span>
+    </label>`;
+  };
+
+  const preUnrolledGroups = new Map();
+  p.items.forEach(it => {
+    if (!it.unrolledFrom) return;
+    if (!preUnrolledGroups.has(it.unrolledFrom)) preUnrolledGroups.set(it.unrolledFrom, []);
+    preUnrolledGroups.get(it.unrolledFrom).push(it);
+  });
+  const itemsHtml = p.items.map((it, i) => {
+    const qty = Math.trunc(Number(it.quantity) || 1);
+    const hostUnits = it.unrolledFrom ? preUnrolledGroups.get(it.unrolledFrom) : null;
+    if (hostUnits && hostUnits.length > 1) {
+      if (hostUnits[0] !== it) return '';
+      const parentName = String(it.name || 'Item').replace(/\s*\(\d+\/\d+\)\s*$/, '');
+      return `<div class="claim-unit-group" data-claim-unit-group="${esc(it.unrolledFrom)}">
+        <div class="claim-unit-group-head"><strong>${esc(parentName)}${claimDietPill(it) ? ` ${claimDietPill(it)}` : ''}</strong><span class="claim-unit-count">${hostUnits.length} units</span></div>
+        <div class="claim-unit-row">${hostUnits.map(unit => renderClaimItem(unit, p.items.indexOf(unit))).join('')}</div>
+      </div>`;
+    }
+    if (qty > 1) {
+      const unitCards = Array.from({ length: qty }, (_, unitIndex) =>
+        renderClaimItem({
+          ...it,
+          id: `${it.id}::unit:${unitIndex + 1}`,
+          originalItemId: it.id,
+          name: it.name,
+          costPaise: Math.round(it.costPaise / qty),
+          quantity: 1
+        }, i, `(${unitIndex + 1}/${qty})`)
+      ).join('');
+      return `<div class="claim-entry has-split" data-claim-entry-id="${esc(it.id)}">
+        <div class="claim-parent-card">${renderClaimItem(it, i)}<button type="button" class="button button-quiet button-small claim-split-button ai-unroll" data-action="claim-toggle-units" data-item-id="${esc(it.id)}" aria-label="Unroll quantity: split ${qty} units of ${esc(it.name)} into individual items">Unroll quantity</button></div>
+        <div class="claim-unit-group claim-inline-units" data-claim-unit-group="${esc(it.id)}" hidden>
+          <div class="claim-unit-group-head"><strong>${esc(it.name)}${claimDietPill(it) ? ` ${claimDietPill(it)}` : ''}</strong><button type="button" class="button button-quiet button-small ai-unroll" data-action="claim-toggle-units" data-item-id="${esc(it.id)}" aria-label="Combine ${qty} units of ${esc(it.name)} back into one item">Combine units</button></div>
+          <div class="claim-unit-row">${unitCards}</div>
+        </div>
+      </div>`;
+    }
+    return `<div class="claim-entry">${renderClaimItem(it, i)}</div>`;
+  }).join('');
+
+  $('#app').innerHTML = `
+    <div class="claim-page">
+      <header class="claim-head" style="--i:0">
+        <div class="claim-head-main">
+          <p class="claim-kicker">Shared bill${p.date ? ` · ${esc(p.date)}` : ''}</p>
+          <h1>${esc(p.outing)}</h1>
+          <p class="claim-lead">Pick your name, then tick everything you shared.</p>
+        </div>
+        <dl class="claim-facts">
+          <div><dt>${totalLabel}</dt><dd>${formatCurrency(totalValue)}</dd></div>
+          <div><dt>People</dt><dd>${p.participants.length}</dd></div>
+          <div><dt>Items</dt><dd>${p.items.length}</dd></div>
+        </dl>
+        <div class="claim-bar" role="progressbar" aria-label="Items you have selected" aria-valuemin="0" aria-valuemax="${p.items.length}" aria-valuenow="0" data-cs="bar">
+          <div class="cb-track"><span class="cb-fill" data-cs="fill"></span></div>
+          <span class="cb-label" data-cs="progress">0 of ${p.items.length} items selected</span>
+        </div>
+      </header>
+
+      <div class="claim-layout">
+        <div class="claim-main">
+          <fieldset class="claim-who" style="--i:1">
+            <legend>Who are you?</legend>
+            <div class="claim-people" role="radiogroup" aria-label="Your name" data-cs="people">${peopleHtml}</div>
+          </fieldset>
+
+          <section class="claim-items" aria-label="Items on this bill">
+            <h2 class="claim-section-title" style="--i:2">What did you share?</h2>
+            <div class="claim-grid">${itemsHtml}</div>
+            <p class="claim-footnote">Your amount is an estimate, as if you were the only one on these items. Dishes shared with others are split by the host once every claim is in.</p>
+          </section>
+
+          <section id="claim-result-box" class="claim-result" aria-live="polite" tabindex="-1"></section>
         </div>
 
-        <button class="button button-primary" data-action="submit-whatsapp-claim" style="width:100%;">
-          Generate WhatsApp Claim Message
-        </button>
-
-        <div id="claim-result-box" style="margin-top:16px;"></div>
+        <aside class="claim-summary" style="--i:3" aria-label="Your claim summary">
+          <h2 class="cs-title" data-cs="who">Your claim</h2>
+          <div class="cs-lines">
+            <div class="cs-line"><span>Selected</span><strong data-cs="count">0 items</strong></div>
+            <div class="cs-line"><span>Items</span><strong data-cs="subtotal" data-paise="0">${formatCurrency(0)}</strong></div>
+            ${showTax ? `<div class="cs-line"><span>Tax &amp; discount</span><strong data-cs="tax" data-signed="1" data-paise="0">${formatCurrency(0)}</strong></div>` : ''}
+          </div>
+          <div class="cs-total"><span>Estimated amount</span><strong data-cs="estimate" data-paise="0">${formatCurrency(0)}</strong></div>
+          <button type="button" class="button button-primary cs-submit" data-action="submit-whatsapp-claim" data-cs="submit" disabled>Prepare WhatsApp claim</button>
+          <p class="cs-hint" data-cs="hint">Choose your name to continue.</p>
+        </aside>
       </div>
     </div>
   `;
+
+  syncClaim({ initial: true });
+
+
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('formId')) {
+    const submitButton = $('[data-action="submit-whatsapp-claim"]');
+    if (submitButton) submitButton.textContent = 'Submit claim to owner';
+    const resultBox = $('#claim-result-box');
+    if (resultBox && !$('#gas-customer-details')) {
+      const details = document.createElement('section');
+      details.id = 'gas-customer-details';
+      details.className = 'panel';
+      details.style.marginTop = '14px';
+      details.innerHTML = `
+        <h2 style="margin-top:0">Your contact details</h2>
+        <p class="quiet">Your claim is sent to the bill owner's Google Sheet.</p>
+        <label style="display:block;margin:10px 0 5px" for="gas-customer-contact">Contact details (optional)</label>
+        <input id="gas-customer-contact" maxlength="200" autocomplete="email" placeholder="Phone, email, or UPI ID" style="width:100%">
+        <label style="display:block;margin:10px 0 5px" for="gas-customer-note">Additional note (optional)</label>
+        <textarea id="gas-customer-note" maxlength="1000" rows="2" placeholder="Anything the bill owner should know" style="width:100%"></textarea>
+      `;
+      resultBox.parentNode.insertBefore(details, resultBox);
+    }
+  }
 }
 
-export default function ClaimView({ markup = '' }) {
-  return (
-    <div
-      className="legacy-view-root"
-      data-legacy-view="claim"
-      dangerouslySetInnerHTML={{ __html: markup }}
-    />
-  );
+export function readClaimState() {
+  const selected = $('input[data-claimant]:checked');
+  const user = selected?.value || '';
+  const participantId = selected?.dataset.participantId || '';
+  const ids = new Set(Array.from($$('[data-claim-item]:checked')).map(b => b.dataset.claimItem));
+  return { user, participantId, ids };
 }
+
+
+export function tweenMoney(el, to, instant) {
+  if (!el) return;
+  const fmt = v => (el.dataset.signed === '1' && v > 0 ? '+' : '') + formatCurrency(v);
+  const from = el.__v ?? Number(el.dataset.paise || 0);
+  el.dataset.paise = String(to);
+  if (el.__raf) cancelAnimationFrame(el.__raf);
+  if (instant || from === to || !claimMotionOk()) { el.__v = to; el.textContent = fmt(to); return; }
+  const t0 = performance.now(), dur = 240;
+  const step = now => {
+    const k = Math.min(1, (now - t0) / dur);
+    el.__v = k >= 1 ? to : Math.round(from + (to - from) * (1 - Math.pow(1 - k, 3)));
+    el.textContent = fmt(el.__v);
+    el.__raf = k < 1 ? requestAnimationFrame(step) : 0;
+  };
+  el.__raf = requestAnimationFrame(step);
+}
+
+export function setClaimText(name, text) {
+  const el = $(`[data-cs="${name}"]`);
+  if (el && el.textContent !== text) el.textContent = text;
+}
+
+
+export function syncClaim({ initial = false } = {}) {
+  const p = S.decodedClaimPayload;
+  if (!p || !$('.claim-page')) return;
+  const { user, participantId, ids } = readClaimState();
+  const t = claimTotals(p, ids);
+
+  $$('.claim-item').forEach(el => {
+    const on = el.querySelector('[data-claim-item]').checked;
+    el.classList.toggle('is-selected', on);
+    el.dataset.members = JSON.stringify(on && user ? [user] : []);   // read by the scroll picker (motion.jsx)
+  });
+  $$('.claim-person').forEach(el => el.classList.toggle('is-selected', el.querySelector('input').checked));
+  $('[data-cs="people"]')?.classList.toggle('has-selection', !!user);
+
+  const n = p.items.length;
+  const bar = $('[data-cs="bar"]');
+  bar?.setAttribute('aria-valuenow', String(ids.size));
+  $('[data-cs="fill"]')?.style.setProperty('--p', String(n ? ids.size / n : 0));
+  setClaimText('progress', `${ids.size} of ${n} items selected`);
+
+  setClaimText('who', user ? `${user}’s claim` : 'Your claim');
+  setClaimText('count', `${ids.size} ${ids.size === 1 ? 'item' : 'items'}`);
+  tweenMoney($('[data-cs="subtotal"]'), t.subtotal, initial);
+  tweenMoney($('[data-cs="tax"]'), t.taxShare, initial);
+  tweenMoney($('[data-cs="estimate"]'), t.estimate, initial);
+
+  const submit = $('[data-cs="submit"]');
+  if (submit) submit.disabled = !user || ids.size === 0;
+  const summary = $('.claim-summary');
+  if (summary) summary.dataset.ready = String(!!user && ids.size > 0);
+  setClaimText('hint', !user ? 'Choose your name to continue.' : ids.size === 0 ? 'Select at least one item you shared.' : 'Ready. This prepares a message for your host.');
+
+  if (!initial) {
+
+    const box = $('#claim-result-box');
+    if (box?.firstElementChild) box.replaceChildren();
+    writeStore(claimDraftKey(p), { user, participantId, ids: [...ids] });
+  }
+}
+
+
+document.addEventListener('change', e => {
+  if (e.target.matches?.('[data-claim-item], input[data-claimant]') && $('.claim-page')) syncClaim();
+});

@@ -1,82 +1,103 @@
-/** Receipt upload validation, Gemini scanning, and safe bill import. */
-export function createReceiptController(deps) {
-  const { $, toast, validateFileInput, geminiConfigured, go, settings, scanReceipt, currentBill, uid, toPaise, renderBill, esc } = deps;
+import { getRosters, saveRecent, getSettings, saveSettings, exportBackup } from '../../state.jsx';
+import { runSelfTests } from '../../algorithm.jsx';
+import { $, S, applyTheme, esc, icon, toast } from '../core.jsx';
+import { initOuting, saveCurrentOutingToRecent } from '../outing.jsx';
+import { go } from '../router.jsx';
+import { renderDashboard } from '../views/dashboard.jsx';
 
-  async function handleReceiptScan() {
-    const fileInput = $('#receipt-upload');
-    const file = fileInput?.files?.[0];
-    if (!file) {
-      const message = 'Choose a receipt image before scanning.';
-      if (fileInput) fileInput.setAttribute('aria-invalid', 'true');
-      const fileStatus = $('#receipt-file-status');
-      if (fileStatus) fileStatus.innerHTML = `<div class="receipt-upload-error" role="alert">${esc(message)}</div>`;
-      toast('Please select or capture a receipt image first.', true);
-      return;
+export const ACTIONS = [
+  'info-back',
+  'toggle-theme',
+  'new-bill',
+  'use-group-bill',
+  'export-backup',
+  'clear-history',
+  'wipe-all-data',
+  'run-financial-tests',
+  'save-draft',
+  'save-current-bill',
+  'close-ambiguity'
+];
+
+export async function handle(action, actionBtn) {
+  switch (action) {
+    case 'info-back': {
+      go('dashboard');
+      break;
     }
-    if (!validateFileInput(fileInput, 'image')) {
-      toast('Please select a valid receipt image (15 MB or smaller).', true);
-      return;
+
+    case 'toggle-theme': {
+      S.settings.theme = S.settings.theme === 'dark' ? 'light' : 'dark';
+      saveSettings(S.settings);
+      applyTheme(S.settings.theme);
+      break;
     }
 
-    if (!geminiConfigured) {
-      toast('Gemini is not configured. Add VITE_GEMINI_API_KEY to your .env file and restart Vite.', true);
-      go('settings');
-      return;
+    case 'new-bill': {
+      initOuting(S.activeGroup);
+      break;
     }
 
-    const btn = $('#scan-btn');
-    const spinner = $('#scan-spinner');
-    const statusBox = $('#scan-status');
+    case 'use-group-bill': {
+      const g = S.rosters.find(x => x.id === actionBtn.dataset.id);
+      if (g) initOuting(g);
+      break;
+    }
 
-    if (btn) btn.disabled = true;
-    if (spinner) spinner.style.display = 'inline';
-    if (statusBox) statusBox.innerHTML = '<span class="quiet">Compressing image in your browser…</span>';
+    case 'export-backup': {
+      const backup = exportBackup();
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `splitsmart-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      toast('JSON backup exported.');
+      break;
+    }
 
-    try {
-      const onProgress = (msg) => {
-        if (statusBox) statusBox.innerHTML = `<span class="quiet">${esc(msg)}</span>`;
-      };
-
-      const receipt = await scanReceipt(file, settings.selectedModel || 'auto', onProgress);
-      const b = currentBill();
-      if (b) {
-        b.restaurantName = receipt.restaurantName;
-        b.tax = { ...receipt.tax };
-        b.discount = receipt.discount;
-        b.statedTotal = receipt.statedGrandTotal;
-        b.items = receipt.items.map((it) => ({
-          id: uid('item'),
-          name: it.name,
-          quantity: it.quantity,
-          unitPaise: toPaise(it.unitPrice),
-          totalPaise: Math.round(toPaise(it.unitPrice) * it.quantity),
-          category: it.category,
-          assignments: [],
-        }));
-        toast(
-          `Receipt scanned successfully using ${receipt.modelUsed || 'Gemini'}! Review extracted items.`,
-        );
-        renderBill();
+    case 'clear-history': {
+      if (confirm('Clear your recent bill history?')) {
+        S.recent = [];
+        saveRecent(S.recent);
+        toast('Recent bills cleared.');
+        renderDashboard();
       }
-    } catch (err) {
-      const errorMessage = err?.message || 'Unable to scan this image. Please try another image.';
+      break;
+    }
 
-      if (err?.code === 'NOT_A_BILL') {
-        const alertMessage = `${errorMessage} You can also enter items manually.`;
-        if (statusBox) {
-          statusBox.innerHTML = `<div class="warning" role="alert"><strong>Bill not detected.</strong> ${esc(alertMessage)}</div>`;
-        }
-        // Show a visible toast alert as well as the inline message beside the uploader.
-        toast(errorMessage, true);
-      } else if (statusBox) {
-        statusBox.innerHTML = `<div class="warning" role="alert">⚠️ ${esc(errorMessage)} You can also enter items manually.</div>`;
-        toast(errorMessage, true);
+    case 'wipe-all-data': {
+      if (confirm('Permanently wipe all SplitSmart groups, history, and settings from this device?')) {
+        localStorage.clear();
+        S.rosters = getRosters();
+        S.recent = [];
+        S.settings = getSettings();
+        toast('All local data wiped.');
+        go('dashboard');
       }
-    } finally {
-      if (btn) btn.disabled = false;
-      if (spinner) spinner.style.display = 'none';
+      break;
+    }
+
+    case 'run-financial-tests': {
+      try {
+        const res = runSelfTests();
+        $('#test-results-output').innerHTML = `<span style="color:var(--success);">${icon('check')} ${esc(res)}</span>`;
+      } catch (err) {
+        $('#test-results-output').innerHTML = `<span style="color:var(--danger);">${icon('close')} Test failure: ${esc(err.message)}</span>`;
+      }
+      break;
+    }
+
+    case 'save-draft':
+    case 'save-current-bill': {
+      saveCurrentOutingToRecent();
+      break;
+    }
+
+    case 'close-ambiguity': {
+      $('#ambiguity-dialog').close();
+      S.pendingAmbiguityAction = null;
+      break;
     }
   }
-
-  return { handleReceiptScan };
 }

@@ -1,4 +1,94 @@
-/* Navigation motion stays subtle and respects reduced-motion preferences. */
-.nav-link { transition: color var(--t-base) var(--ease), background-color var(--t-base) var(--ease), transform var(--t-base) var(--ease); }
-.nav-link:active { transform: translateY(1px); }
-@media (prefers-reduced-motion: reduce) { .nav-link { transition: none; } }
+#app h1 {
+  font-family: "Manrope", var(--font-stack), sans-serif;
+}
+
+#app h1.ss-heading-reveal .ss-heading-stage {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: top;
+}
+
+#app h1.ss-heading-reveal .ss-heading-sharp {
+  position: relative;
+  display: block;
+}
+
+#app h1.ss-heading-reveal .ss-heading-soft {
+  display: none;
+}
+
+@supports (clip-path: inset(0 100% 0 0)) {
+  #app h1.ss-heading-reveal .ss-heading-sharp {
+    clip-path: inset(0 100% 0 0);
+    animation: ss-heading-sharp-reveal 760ms cubic-bezier(.16, 1, .3, 1) both;
+    will-change: clip-path;
+  }
+
+  #app h1.ss-heading-reveal .ss-heading-soft {
+    position: absolute;
+    inset: 0;
+    display: block;
+    overflow: visible;
+    color: inherit;
+    opacity: .9;
+    filter: blur(3.2px);
+    clip-path: inset(0 0 0 0);
+    pointer-events: none;
+    animation: ss-heading-soft-recede 760ms cubic-bezier(.16, 1, .3, 1) both;
+    will-change: clip-path, opacity;
+  }
+}
+
+@keyframes ss-heading-sharp-reveal {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+
+@keyframes ss-heading-soft-recede {
+  0% { clip-path: inset(0 0 0 0); opacity: .9; }
+  100% { clip-path: inset(0 0 0 100%); opacity: 0; }
+}
+
+.ss-settlement-burst {
+  position: fixed;
+  inset: 0;
+  z-index: 38;
+  overflow: hidden;
+  pointer-events: none;
+  contain: strict;
+}
+
+.ss-confetti-piece {
+  position: absolute;
+  display: block;
+  border-radius: 1px;
+  opacity: 0;
+  transform: translate3d(0, 0, 0) rotate(0deg);
+  transform-origin: center;
+  animation: ss-confetti-flight 880ms cubic-bezier(.18, .62, .28, 1) both;
+  will-change: transform, opacity;
+}
+
+.ss-confetti-piece.is-green { background: var(--lime); }
+.ss-confetti-piece.is-gold { background: var(--warning); }
+
+@keyframes ss-confetti-flight {
+  0% { opacity: 0; transform: translate3d(0, 0, 0) rotate(0deg); }
+  9% { opacity: .96; }
+  22% { opacity: .94; transform: translate3d(var(--ss-lift-x), var(--ss-lift-y), 0) rotate(var(--ss-lift-spin)); }
+  72% { opacity: .82; }
+  100% { opacity: 0; transform: translate3d(var(--ss-drift-x), var(--ss-fall-y), 0) rotate(var(--ss-spin)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #app h1.ss-heading-reveal .ss-heading-sharp {
+    animation: none !important;
+    clip-path: none !important;
+  }
+  #app h1.ss-heading-reveal .ss-heading-soft,
+  .ss-confetti-piece {
+    display: none !important;
+    animation: none !important;
+  }
+}

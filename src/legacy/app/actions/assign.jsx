@@ -1,185 +1,210 @@
-/** Item assignment, drag-and-drop, and deterministic natural-language commands. */
-export function createAssignmentController(deps) {
-  const { $$, currentBill, members, renderAssign, toast, showAmbiguityDialog } = deps;
+import { unrollItem, undoUnrollItem } from '../../algorithm.jsx';
+import { executeNaturalLanguageCommand, handleVoiceCommand } from '../commands.jsx';
+import { $, S, currentBill, members, toast } from '../core.jsx';
+import { go } from '../router.jsx';
+import { renderAssign, toggleItemAssignment } from '../views/assign.jsx';
 
-  function attachDragAndDrop() {
-    let draggedMemberId = null;
+export const ACTIONS = [
+  'select-assignee',
+  'toggle-assignment',
+  'auto-split-diet',
+  'split-remaining-equally',
+  'unroll-single',
+  'regroup-units',
+  'unroll-all',
+  'undo-unroll',
+  'run-command',
+  'voice-command',
+  'filter-diet',
+  'go-to-breakdown',
+  'back-to-assign'
+];
 
-    $$('.chip[draggable="true"]').forEach((chip) => {
-      chip.addEventListener('dragstart', (e) => {
-        draggedMemberId = chip.dataset.memberId;
-        chip.classList.add('dragging');
-        e.dataTransfer.setData('text/plain', draggedMemberId);
-        e.dataTransfer.effectAllowed = 'copy';
-      });
+export async function handle(action, actionBtn) {
+  switch (action) {
+    case 'select-assignee': {
+      S.assignActiveMemberId = actionBtn.dataset.memberId;
+      renderAssign();
+      $(`.ap-person[data-member-id="${CSS.escape(S.assignActiveMemberId)}"]`)?.focus({ preventScroll: true });
+      break;
+    }
 
-      chip.addEventListener('dragend', () => {
-        chip.classList.remove('dragging');
-        draggedMemberId = null;
-      });
-    });
+    case 'toggle-assignment': {
+      const itemId = actionBtn.dataset.itemId;
+      const memberId = actionBtn.dataset.memberId;
+      if (!memberId) { toast('Pick a person first.', true); break; }
+      toggleItemAssignment(itemId, memberId);
+      break;
+    }
 
-    $$('.assignment-item').forEach((itemCard) => {
-      itemCard.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'copy';
-        itemCard.classList.add('drop-target');
-      });
+    case 'auto-split-diet': {
+      const b = currentBill();
+      if (!b) return;
+      const gMembers = members();
 
-      itemCard.addEventListener('dragleave', () => {
-        itemCard.classList.remove('drop-target');
-      });
-
-      itemCard.addEventListener('drop', (e) => {
-        e.preventDefault();
-        itemCard.classList.remove('drop-target');
-        const memberId = e.dataTransfer.getData('text/plain') || draggedMemberId;
-        const itemId = itemCard.dataset.itemId;
-
-        if (memberId && itemId) {
-          toggleItemAssignment(itemId, memberId);
+      let changed = 0;
+      b.items.forEach(item => {
+        if (item.category === 'VEG') {
+          const eligible = gMembers.filter(m => m.dietaryTag === 'VEG').map(m => m.id);
+          if (eligible.length) { item.assignments = eligible; changed++; }
+        } else if (item.category === 'NON-VEG') {
+          const eligible = gMembers.filter(m => m.dietaryTag === 'NON-VEG').map(m => m.id);
+          if (eligible.length) { item.assignments = eligible; changed++; }
         }
       });
-    });
-  }
 
-  function toggleItemAssignment(itemId, memberId) {
-    const bill = currentBill();
-    if (!bill) return;
-    const item = bill.items.find((i) => i.id === itemId);
-    if (!item) return;
-
-    item.assignments = item.assignments || [];
-    if (item.assignments.includes(memberId)) {
-      item.assignments = item.assignments.filter((id) => id !== memberId);
-    } else {
-      item.assignments.push(memberId);
-    }
-    renderAssign();
-  }
-
-  function executeNaturalLanguageCommand(text) {
-    if (!text || !text.trim()) return;
-    const bill = currentBill();
-    if (!bill) return;
-
-    const raw = text.trim();
-    const lower = raw.toLowerCase();
-    const items = bill.items || [];
-    // Pattern 1: Clear all
-    if (lower === 'clear all' || lower === 'reset all') {
-      items.forEach((i) => (i.assignments = []));
-      toast('Cleared all item assignments.');
+      toast(`Dietary preferences applied to ${changed} item(s).`);
       renderAssign();
-      return;
+      break;
     }
 
-    // Pattern 2: Clear item X
-    const clearMatch = lower.match(/^clear\s+(?:assignment\s+(?:for\s+)?)?(?:item\s+)?(.+)$/);
-    if (clearMatch) {
-      const targetStr = clearMatch[1].trim();
-      const itemNum = parseInt(targetStr, 10);
-      const targetItem = !isNaN(itemNum)
-        ? items[itemNum - 1]
-        : items.find((i) => i.name.toLowerCase().includes(targetStr));
-      if (targetItem) {
-        targetItem.assignments = [];
-        toast(`Cleared assignments for "${targetItem.name}".`);
+    case 'split-remaining-equally': {
+      const b = currentBill();
+      if (!b) return;
+      const allIds = members().map(m => m.id);
+      let count = 0;
+      b.items.forEach(item => {
+        if (!item.assignments || item.assignments.length === 0) {
+          item.assignments = [...allIds];
+          count++;
+        }
+      });
+      toast(`Split ${count} unassigned item(s) equally across all members.`);
+      renderAssign();
+      break;
+    }
+
+    case 'unroll-single': {
+      const b = currentBill();
+      const idx = Number(actionBtn.dataset.idx);
+      if (b && b.items[idx]) {
+        const original = b.items[idx];
+        const unrolled = unrollItem(original);
+        if (unrolled) {
+          S.previousUnrolls.push({ type: 'single', original, items: unrolled });
+          b.items.splice(idx, 1, ...unrolled);
+          toast(`Unrolled "${original.name}" into ${unrolled.length} units.`);
+          renderAssign();
+        }
+      }
+      break;
+    }
+
+    case 'regroup-units': {
+      // Reverse of "Split into units": merge one item's units back into the original grouped item.
+      const b = currentBill();
+      const gid = actionBtn.dataset.group;
+      if (!b || !gid) return;
+      const idxs = b.items.map((it, i) => (it.unrolledFrom === gid ? i : -1)).filter(i => i >= 0);
+      if (idxs.length < 2) return;
+      const units = idxs.map(i => b.items[i]);
+      const key = u => [...new Set(u.assignments || [])].sort().join('|');
+      const uniform = units.every(u => key(u) === key(units[0]));
+      const union = [...new Set(units.flatMap(u => u.assignments || []))];
+      if (!uniform) {
+        const who = union.map(id => members().find(m => m.id === id)?.name || 'Unknown').join(', ');
+        const ok = confirm(`These ${units.length} units are assigned to different people.\n\nCombining them shares the whole item equally between everyone assigned to any unit (${who}).\n\nCombine anyway?`);
+        if (!ok) return;
+      }
+      // Rebuild from the saved original when this session unrolled it, otherwise from the units themselves.
+      let original = null;
+      S.previousUnrolls.forEach(rec => {
+        if (rec.type === 'single' && rec.original.id === gid) original = rec.original;
+        if (rec.type === 'batch') rec.records.forEach(r => { if (r.original.id === gid) original = r.original; });
+      });
+      const totalPaise = units.reduce((a, u) => a + Math.trunc(Number(u.totalPaise) || 0), 0);   // exact: units were built to sum to the original
+      const merged = { ...units[0], ...(original || {}), id: gid, quantity: units.length, totalPaise, assignments: union };
+      if (!original) {
+        merged.name = String(units[0].name || '').replace(/\s*\(\d+\/\d+\)\s*$/, '');
+        merged.unitPaise = Math.round(totalPaise / units.length);
+      }
+      delete merged.unrolledFrom;
+      const next = [];
+      b.items.forEach((it, i) => { if (i === idxs[0]) next.push(merged); else if (!idxs.includes(i)) next.push(it); });
+      b.items = next;
+      // The undo stack must not re-add this original a second time.
+      S.previousUnrolls = S.previousUnrolls
+        .map(rec => (rec.type === 'batch' ? { ...rec, records: rec.records.filter(r => r.original.id !== gid) } : rec))
+        .filter(rec => !(rec.type === 'single' && rec.original.id === gid) && !(rec.type === 'batch' && !rec.records.length));
+      toast(`Combined ${units.length} units back into "${merged.name}".`);
+      renderAssign();
+      break;
+    }
+
+    case 'unroll-all': {
+      const b = currentBill();
+      if (!b) return;
+      let unrolledAny = false;
+      const nextItems = [];
+      const unrollHistory = [];
+
+      b.items.forEach(item => {
+        const res = unrollItem(item);
+        if (res) {
+          unrolledAny = true;
+          unrollHistory.push({ original: item, unrolled: res });
+          nextItems.push(...res);
+        } else {
+          nextItems.push(item);
+        }
+      });
+
+      if (unrolledAny) {
+        S.previousUnrolls.push({ type: 'batch', records: unrollHistory });
+        b.items = nextItems;
+        toast('All quantities unrolled into individual units.');
         renderAssign();
       } else {
-        toast(`No item matching "${targetStr}" found.`, true);
+        toast('No items with quantity > 1 found to unroll.');
       }
-      return;
+      break;
     }
 
-    // Pattern 3: Assign / Put / Split <item> to/on/between <target>
-    const assignMatch = lower.match(/^(?:assign|put|split)\s+(.+?)\s+(?:to|on|between)\s+(.+)$/);
-    if (!assignMatch) {
-      toast(
-        'Command not recognized. Example: "Assign naan to everyone" or "Put biryani on Sneha"',
-        true,
-      );
-      return;
-    }
+    case 'undo-unroll': {
+      const b = currentBill();
+      if (!b || !S.previousUnrolls.length) return;
+      const last = S.previousUnrolls.pop();
 
-    const itemQuery = assignMatch[1].trim();
-    const targetQuery = assignMatch[2].trim();
-
-    // Resolve item
-    let targetItem = null;
-    const itemNum = parseInt(itemQuery.replace(/^item\s+/, ''), 10);
-    if (!isNaN(itemNum) && items[itemNum - 1]) {
-      targetItem = items[itemNum - 1];
-    } else {
-      const matchingItems = items.filter((i) => i.name.toLowerCase().includes(itemQuery));
-      if (matchingItems.length === 0) {
-        toast(`No item found matching "${itemQuery}".`, true);
-        return;
-      } else if (matchingItems.length > 1) {
-        // Ambiguous item match
-        showAmbiguityDialog(
-          `Multiple items matched "${itemQuery}". Please choose one:`,
-          matchingItems.map((i) => ({ label: `${i.name} (Qty ${i.quantity})`, value: i.id })),
-          (selectedId) => {
-            const itm = items.find((i) => i.id === selectedId);
-            if (itm) applyAssignmentToItem(itm, targetQuery);
-          },
-        );
-        return;
+      if (last.type === 'single') {
+        b.items = undoUnrollItem(b.items, last.original);
+      } else if (last.type === 'batch') {
+        last.records.forEach(rec => {
+          b.items = undoUnrollItem(b.items, rec.original);
+        });
       }
-      targetItem = matchingItems[0];
+      toast('Undo unroll completed.');
+      renderAssign();
+      break;
     }
 
-    applyAssignmentToItem(targetItem, targetQuery);
+    case 'run-command': {
+      const input = $('#command-input');
+      if (input) {
+        executeNaturalLanguageCommand(input.value);
+        input.value = '';
+      }
+      break;
+    }
+
+    case 'voice-command': {
+      handleVoiceCommand();
+      break;
+    }
+
+    case 'filter-diet': {
+      S.assignmentDietFilter = actionBtn.dataset.filter;
+      renderAssign();
+      break;
+    }
+
+    case 'go-to-breakdown': {
+      go('breakdown');
+      break;
+    }
+
+    case 'back-to-assign': {
+      go('assign');
+      break;
+    }
   }
-
-  function applyAssignmentToItem(item, targetQuery) {
-    const groupMembers = members();
-    let assignees = [];
-
-    if (targetQuery === 'everyone' || targetQuery === 'everybody' || targetQuery === 'all') {
-      assignees = groupMembers.map((m) => m.id);
-    } else if (targetQuery === 'veg' || targetQuery === 'vegetarians') {
-      assignees = groupMembers.filter((m) => m.dietaryTag === 'VEG').map((m) => m.id);
-    } else if (targetQuery === 'non-veg' || targetQuery === 'nonveg') {
-      assignees = groupMembers.filter((m) => m.dietaryTag === 'NON-VEG').map((m) => m.id);
-    } else if (targetQuery.includes(' and ')) {
-      const names = targetQuery.split(' and ').map((s) => s.trim());
-      names.forEach((n) => {
-        const match = groupMembers.find((m) => m.name.toLowerCase().includes(n));
-        if (match) assignees.push(match.id);
-      });
-    } else {
-      const matches = groupMembers.filter((m) => m.name.toLowerCase().includes(targetQuery));
-      if (matches.length === 0) {
-        toast(`No group member found matching "${targetQuery}".`, true);
-        return;
-      } else if (matches.length > 1) {
-        showAmbiguityDialog(
-          `Multiple members matched "${targetQuery}". Select one:`,
-          matches.map((m) => ({ label: m.name, value: m.id })),
-          (selectedId) => {
-            item.assignments = [selectedId];
-            toast(`Assigned ${item.name} to ${matches.find((m) => m.id === selectedId)?.name}.`);
-            renderAssign();
-          },
-        );
-        return;
-      }
-      assignees = [matches[0].id];
-    }
-
-    if (assignees.length === 0) {
-      toast('No eligible members matched.', true);
-      return;
-    }
-
-    item.assignments = [...new Set(assignees)];
-    toast(
-      `Assigned "${item.name}" to ${assignees.map((id) => groupMembers.find((m) => m.id === id)?.name).join(', ')}.`,
-    );
-    renderAssign();
-  }
-
-  return { attachDragAndDrop, toggleItemAssignment, executeNaturalLanguageCommand };
 }

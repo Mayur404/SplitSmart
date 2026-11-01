@@ -1,3 +1,4 @@
+/** SplitSmart — Delegated change, input and keydown listeners. */
 import { getRosters, saveRosters, saveSettings, importBackup } from '../state.jsx';
 import { toPaise, formatCurrency } from '../algorithm.jsx';
 import { $, S, toast } from './core.jsx';
@@ -6,6 +7,7 @@ import { updateBillTotalsLive } from './views/bill.jsx';
 import { applyPayerAmounts, updateLivePayerSummary } from './views/breakdown.jsx';
 import { renderGroups } from './views/groups.jsx';
 
+// Change events: scan model, default payer, backup import, member search
 document.addEventListener('change', e => {
   if (e.target.dataset.action === 'set-scan-model') {
     S.settings.selectedModel = e.target.value || 'auto';
@@ -54,7 +56,7 @@ document.addEventListener('change', e => {
   }
 });
 
-
+// Dynamic Item Line Total Calculations on Bill Input
 document.addEventListener('input', e => {
   if (e.target.closest('.item-entry')) {
     const row = e.target.closest('.item-entry');
@@ -64,6 +66,7 @@ document.addEventListener('input', e => {
     const disp = row.querySelector('.item-total-display');
     if (disp) disp.textContent = formatCurrency(lineTotalPaise);
 
+    // Update food subtotal live
     updateBillTotalsLive();
   }
 
@@ -81,6 +84,7 @@ document.addEventListener('input', e => {
   }
 });
 
+// Pressing Enter in payer amount input triggers calculation update
 document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && e.target.matches('.payer-amount-input')) {
     e.preventDefault();

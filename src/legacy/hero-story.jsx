@@ -1,11 +1,29 @@
+/**
+ * SplitSmart — hero-story.jsx
+ * Landing-page hero: "Good food. Great friends. Fair splits."
+ *
+ * One deterministic loop clock drives every element. Each element is a pure
+ * function of loop time (hero-motion.jsx springs/eases), so the story is the same
+ * on every run, the loop closes exactly (frame 0 === frame LOOP), and the whole
+ * thing can be paused, seeked or frozen for reduced motion.
+ *
+ * Loop timeline (ms):
+ *    0 –  1400  friends and dishes at the table (steam only)
+ * 1400 –  2500  table recedes, friends stand up, the shared bill rises
+ * 2700 –  4900  each dish flies to whoever ate it (naan is shared)
+ * 4950 –  5600  tax & discount split in proportion to what each person had
+ * 5900 –  7400  bill collapses to the group total, three share cards open, checks land
+ * 7400 –  9300  hold the result
+ * 9300 – 11500  cards merge back, bill folds into the table, scene returns to start
+ */
 import { formatCurrency } from './algorithm.jsx';
 import { buildStory } from './hero-data.jsx';
 import { sceneMarkup, tokenSpecs, LAYOUT } from './hero-art.jsx';
 import { clamp01, lerp, seg, easeOut, easeInOut, spring, springSoft, arc, pulse } from './hero-motion.jsx';
 
-const LOOP = 12000;        
-const LOOP_START = 1100;  
-const INTRO_END = 2000;   
+const LOOP = 12000;        // must stay a multiple of the 2400ms steam period
+const LOOP_START = 1100;   // global clock value at which loop time 0 begins
+const INTRO_END = 2000;    // first-visit entrance finishes
 const FLY = 520, TAXFLY = 560;
 
 const T = {
@@ -16,12 +34,13 @@ const T = {
   retract: [9300, 9900], checkOut: [9300, 9500], merge: [9700, 10500],
   fold: [10300, 10900], down: [10400, 11500]
 };
-const CAPTION_AT = [1800, 5800, 11200]; 
+const CAPTION_AT = [1800, 5800, 11200]; // "Good food." → "Great friends." → "Fair splits."
 
 const story = buildStory();
 const specs = tokenSpecs(story);
 const { friendX, friendYDining, friendScaleDining, friendYStand, cardY, table, bill, rowCenters, taxCenter } = LAYOUT;
 
+/** Survives re-renders of the dashboard so the animation never restarts. */
 const carry = { clock: 0 };
 
 const SUMMARY = `Three friends share a dinner at House of Thali. The ${formatCurrency(story.totalPaise)} bill is divided by what each person ate, with tax and discount shared in proportion: ${story.friends.map(f => `${f.name} ${formatCurrency(f.sharePaise)}`).join(', ')}.`;
@@ -46,6 +65,7 @@ export function mountHeroStory(host) {
   host.querySelectorAll('[data-r]').forEach(el => { R[el.dataset.r] = el; });
   const reducedMq = window.matchMedia('(prefers-reduced-motion: reduce)');
 
+  /* ---------- tiny DOM writers that skip redundant writes ---------- */
   const cache = new Map();
   const attr = (el, name, val) => {
     const key = el;
@@ -59,11 +79,13 @@ export function mountHeroStory(host) {
   const text = (el, v) => { if (el.textContent !== v) el.textContent = v; };
   const flag = (el, name, on) => { if (el.classList.contains(name) !== on) el.classList.toggle(name, on); };
 
+  /* ---------- static geometry set once ---------- */
   story.friends.forEach((f, i) => {
     const px = 220 + (friendX[i] - 220) * 0.3;
     R[`conn${i}`].setAttribute('d', `M${friendX[i]} ${cardY + 32}C${friendX[i]} ${cardY + 72} ${px} ${bill.y - 76} ${px} ${bill.y - 30}`);
   });
 
+  /* ---------- value events: when each friend's counter changes ---------- */
   const events = story.friends.map(() => []);
   const tokenTimes = specs.map((s, k) => {
     const isTax = s.kind === 'tax';
@@ -86,16 +108,20 @@ export function mountHeroStory(host) {
     return prev;
   };
 
+  /* ---------- one frame, fully determined by (clock, lt) ---------- */
   function render(clock, lt) {
     const intro = clock < INTRO_END;
     const ik = i => (intro ? spring(seg(clock, 120 + i * 130, 820 + i * 130)) : 1);
     const io = i => (intro ? seg(clock, 120 + i * 130, 420 + i * 130) : 1);
 
+    // Shared "stand up" progress: table recedes, friends rise, lamp lifts.
     const up = lt < T.down[0] ? springSoft(seg(lt, T.rise[0], T.rise[1])) : 1 - easeInOut(seg(lt, T.down[0], T.down[1]));
 
+    // Lamp
     place(R.lamp, 0, -up * 34 - (1 - ik(11)) * 60);
     op(R.lamp, (1 - seg(up, 0, 0.6)) * io(11));
 
+    // Table + dishes
     const tIn = ik(3);
     place(R.table, table.x, lerp(table.yDining, table.yFar, up), lerp(1, table.scaleFar, up) * lerp(0.86, 1, tIn));
     op(R.table, io(3));
@@ -110,6 +136,7 @@ export function mountHeroStory(host) {
       place(R[`steam${j}`], 0, -phase * 12);
     }
 
+    // Friends
     story.friends.forEach((f, i) => {
       const k = ik(i);
       const x = friendX[i] + (i === 0 ? -(1 - k) * 90 : i === 2 ? (1 - k) * 90 : 0);
@@ -118,6 +145,7 @@ export function mountHeroStory(host) {
       op(R[`friend${i}`], io(i));
     });
 
+    // Bill: rise, collapse into the group total, fold back into the table
     const bi = spring(seg(lt, T.billIn[0], T.billIn[1]));
     const bOp = seg(lt, T.billIn[0], T.billIn[0] + 260);
     const c = easeInOut(seg(lt, T.collapse[0], T.collapse[1]));
@@ -133,6 +161,7 @@ export function mountHeroStory(host) {
     op(R.billRows, 1 - seg(c, 0, 0.45));
     op(R.billPill, seg(c, 0.55, 1));
 
+    // Rows: lime highlight, dimmed amount, owner badges
     const rowFx = (hlEl, amtEl, t0, dur) => {
       op(hlEl, seg(lt, t0 - 160, t0 + 80) * (1 - seg(lt, t0 + dur, t0 + dur + 450)) * 0.9);
       op(amtEl, 1 - 0.5 * seg(lt, t0 + 60, t0 + 200));
@@ -148,6 +177,7 @@ export function mountHeroStory(host) {
     });
     rowFx(R.rowHlTax, R.rowAmtTax, T.tax, TAXFLY);
 
+    // Tokens flying from the bill to each person
     specs.forEach((s, k) => {
       const { t0, dur } = tokenTimes[k];
       const p = seg(lt, t0, t0 + dur);
@@ -159,6 +189,7 @@ export function mountHeroStory(host) {
       op(R[`tok${k}`], pop > 0.01 ? 1 - seg(p, 0.82, 1) : 0);
     });
 
+    // Share cards (start as compact slots, receive amounts, open into named cards)
     const chkOut = seg(lt, T.checkOut[0], T.checkOut[1]);
     story.friends.forEach((f, i) => {
       const cx = friendX[i];
@@ -191,8 +222,10 @@ export function mountHeroStory(host) {
       place(R[`cardChk${i}`], w / 2 - 5, -h / 2 + 5, Math.max(0.0001, chk));
       op(R[`cardChk${i}`], chk * 8);
 
+      // Avatar ring: pulses on each hand-off, stays lit once the split is complete
       op(R[`ring${i}`], Math.max(glow * 0.9, chk * 0.85));
 
+      // Connector from the group total to this card
       const cp = easeInOut(seg(lt, T.conn[0] + i * 60, T.conn[1] + i * 60)) * (1 - easeInOut(seg(lt, T.retract[0], T.retract[1])));
       attr(R[`conn${i}`], 'stroke-dashoffset', (1 - cp).toFixed(4));
       op(R[`conn${i}`], cp * 10);
@@ -201,6 +234,7 @@ export function mountHeroStory(host) {
     place(R.pillChk, -bill.w / 2 + 30, 0, Math.max(0.0001, pillChk));
     op(R.pillChk, pillChk * 8);
 
+    // Caption: Good food. → Great friends. → Fair splits.
     const L2 = lt < 2200 ? lt + LOOP : lt;
     const weights = [
       seg(L2, CAPTION_AT[2], CAPTION_AT[2] + 300) * (1 - seg(L2, CAPTION_AT[0] + LOOP, CAPTION_AT[0] + LOOP + 300)),
@@ -213,6 +247,7 @@ export function mountHeroStory(host) {
     });
   }
 
+  /* ---------- lifecycle ---------- */
   let clock = carry.clock, last = 0, raf = 0, paused = false, inView = true, staticMode = false;
   const loopTime = ck => (ck < LOOP_START ? 0 : (ck - LOOP_START) % LOOP);
 
@@ -257,8 +292,10 @@ export function mountHeroStory(host) {
     last = 0; schedule();
   });
 
+  // QA hook: jump to any loop time (ms) and freeze there.
   host.seek = ms => { paused = true; stop(false); const lt = ((ms % LOOP) + LOOP) % LOOP; clock = LOOP_START + LOOP + lt; render(clock, lt); };
 
+  // Resume mid-loop after a re-render, otherwise play the entrance once.
   if (carry.clock > INTRO_END) clock = carry.clock;
   render(clock, loopTime(clock));
   applyMode();

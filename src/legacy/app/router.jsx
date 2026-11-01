@@ -1,3 +1,4 @@
+/** SplitSmart — View navigation, nav highlighting and the render() dispatcher. */
 import { $$, $, S, currentBill } from './core.jsx';
 import { clearSettlementBurst, finishViewRender } from './effects.jsx';
 import { renderGasResponses } from './gas/responses.jsx';
@@ -14,7 +15,7 @@ import { renderSettlements } from './views/settlements.jsx';
 
 const INFO_VIEWS = ['terms', 'privacy', 'disclaimer', 'support', 'report'];
 
-
+// Router
 export function go(targetView) {
   const update = () => {
     S.view = targetView;

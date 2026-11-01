@@ -1,3 +1,16 @@
+/**
+ * SplitSmart — ui-enhance.jsx
+ * Two small, self-contained UI layers that sit on top of the existing imperative views:
+ *
+ * 1. Dropdowns — every native <select> is progressively enhanced with a themed, accessible listbox.
+ *    The native <select> stays in the DOM (visually hidden) and remains the single source of truth:
+ *    choosing an option sets select.value and dispatches a bubbling `change` event, so all existing
+ *    handlers and data logic keep working untouched. Views re-render via innerHTML, so a
+ *    MutationObserver enhances new selects as they appear.
+ *
+ * 2. Receipt scanner upload — file preview, replace/remove, and drag-and-drop for #receipt-upload,
+ *    plus a tiny state helper (idle → ready → scanning → error | done) used by the scan handler.
+ */
 
 const $ = (s, r = document) => r.querySelector(s);
 const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -8,6 +21,9 @@ const TICK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.2 4
 let uid = 0;
 let openDd = null;           // the one open dropdown at a time
 
+/* ==========================================================================
+   1. DROPDOWNS
+   ========================================================================== */
 function labelFor(select) {
   const aria = select.getAttribute('aria-label');
   if (aria) return aria;
@@ -37,7 +53,7 @@ function enhance(select) {
   select.classList.add('sx-native');
   select.tabIndex = -1;
   select.setAttribute('aria-hidden', 'true');
-  select.after(root);               
+  select.after(root);                 // sibling, not a wrapper: never re-parents framework-owned nodes
 
   let list = null, active = -1, typed = '', typedTimer = 0;
   const opts = () => [...select.options];
@@ -50,16 +66,18 @@ function enhance(select) {
     if (name) btn.setAttribute('aria-label', `${name}: ${val.textContent}`);
   }
 
+  // Keep the display in sync when app code assigns select.value programmatically.
   Object.defineProperty(select, 'value', {
     configurable: true,
     get() { return valueDescriptor.get.call(this); },
     set(v) { valueDescriptor.set.call(this, v); paint(); }
   });
   select.addEventListener('change', paint);
-  select.addEventListener('focus', () => btn.focus());     
+  select.addEventListener('focus', () => btn.focus());        // label clicks land on the visible control
   select.form?.addEventListener('reset', () => setTimeout(paint));
   new MutationObserver(paint).observe(select, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled', 'selected'] });
 
+  /* ----- popup ----- */
   function place() {
     if (!list) return;
     const r = btn.getBoundingClientRect();
@@ -125,6 +143,9 @@ function enhance(select) {
       li.addEventListener('pointermove', () => { if (!o.disabled && active !== i) setActive(i, false); });
       list.appendChild(li);
     });
+    // Inside an open <dialog> the top layer would hide a body-level popup, so mount there instead.
+    // Mount inside an open <dialog> (a modal makes everything outside it inert) and promote to the top layer
+    // with the Popover API, so the list is positioned against the viewport and is never clipped by the dialog.
     list.setAttribute('popover', 'manual');
     (btn.closest('dialog[open]') || document.body).appendChild(list);
     try { list.showPopover?.(); } catch { /* unsupported: falls back to position: fixed */ }
@@ -167,7 +188,7 @@ function enhance(select) {
       case 'Home': if (isOpen) { e.preventDefault(); setActive(step(1, -1)); } break;
       case 'End': if (isOpen) { e.preventDefault(); setActive(step(-1, 0)); } break;
       case 'Enter': case ' ':
-        if (e.key === ' ' && typed) { e.preventDefault(); typeAhead(' '); break; }   
+        if (e.key === ' ' && typed) { e.preventDefault(); typeAhead(' '); break; }   // mid-search space, e.g. "person 4"
         e.preventDefault();
         if (!isOpen) open(); else if (active >= 0) choose(active);
         break;
@@ -201,10 +222,14 @@ function queueScan() {
 scanSelects();
 new MutationObserver(queueScan).observe(document.body, { childList: true, subtree: true });
 
+/* ==========================================================================
+   2. RECEIPT SCANNER UPLOAD
+   ========================================================================== */
 const MAX_FILE_MB = 15;
 let previewUrl = '';
 const fmtSize = b => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
 
+/** idle | ready | scanning | error | done — drives every visual state in CSS via [data-state]. */
 export function setScanState(state, label) {
   const box = $('#receipt-scanner');
   if (!box) return;
@@ -230,7 +255,7 @@ function showFile(file) {
   previewUrl = URL.createObjectURL(file);
   const img = $('#sc-thumb');
   img.hidden = false; img.src = previewUrl;
-  img.onerror = () => { img.hidden = true; };          
+  img.onerror = () => { img.hidden = true; };           // e.g. HEIC the browser cannot draw: keep the filename card
   $('#sc-name').textContent = file.name || 'Receipt photo';
   $('#sc-size').textContent = fmtSize(file.size);
   card.hidden = false;
@@ -275,4 +300,5 @@ document.addEventListener('drop', e => {
     setStatusNote('This browser could not attach the dropped file. Use “browse files” instead.', true);
   }
 });
+// A page-level drop outside the zone must not navigate the tab to the image.
 ['dragover', 'drop'].forEach(t => window.addEventListener(t, e => { if (e.dataTransfer?.types?.includes('Files') && !e.target.closest?.('#sc-drop')) e.preventDefault(); }));

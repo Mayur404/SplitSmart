@@ -1,3 +1,4 @@
+/** SplitSmart — Google Apps Script response/link storage helpers. */
 import { uid } from '../../state.jsx';
 import { createForm as gasCreateForm } from '../../form-bridge.jsx';
 import { FORM_BRIDGE_OWNER_KEY, FORM_BRIDGE_FORM_ID_KEY } from '../../../config/formBridge.jsx';

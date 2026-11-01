@@ -1,6 +1,12 @@
+/**
+ * SplitSmart — ui-refine.css (loaded last)
+ * Themed dropdowns, redesigned receipt scanner, and assignment-card tweaks.
+ * Solid fills only (no gradients). Colours come from the theme tokens in theme.css.
+ */
 html { --sx-pop: #F6F4EC; --sx-pop-shadow: 0 18px 44px rgba(50,62,30,.28), 0 2px 8px rgba(50,62,30,.14); --sx-ease: cubic-bezier(.22,.8,.3,1); }
 html[data-theme="dark"] { --sx-pop: #1B2218; --sx-pop-shadow: 0 20px 48px rgba(0,0,0,.55), 0 2px 8px rgba(0,0,0,.4); }
 
+/* ---------- Dropdowns ---------- */
 select.sx-native { position: absolute !important; width: 1px !important; height: 1px !important; min-height: 0 !important; padding: 0 !important; margin: -1px !important; border: 0 !important; opacity: 0; overflow: hidden; pointer-events: none; }
 .sx { position: relative; display: block; width: 100%; }
 html .sx-btn { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: 42px; padding: 0 10px 0 14px;
@@ -32,6 +38,7 @@ html[data-theme="dark"] .sx-tick { color: var(--lime); }
 .sx-tick svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
 .sx-opt.is-selected .sx-tick { opacity: 1; }
 
+/* ---------- Receipt scanner ---------- */
 html .panel.scanner { display: grid; gap: 14px; padding: 20px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 22px; box-shadow: none; }
 html .panel.scanner::before, html .panel.scanner::after { content: none; }
 .sc-head { display: flex; align-items: flex-start; gap: 14px; }
@@ -87,6 +94,7 @@ html .sc-scan { width: 100%; min-height: 48px; gap: 8px; font-size: 15px; }
 .sc-note.is-warn { background: var(--warning-soft); border-color: var(--warning-line); color: var(--ink); }
 .sc-note.is-warn .icon { color: var(--warning); }
 
+/* ---------- Assignment cards ---------- */
 .ai-status.is-ok .ai-names { font-weight: 500; }
 .ar-side { justify-items: end; }
 .ar-side .ai-unroll { white-space: nowrap; }
@@ -102,6 +110,7 @@ html .sc-scan { width: 100%; min-height: 48px; gap: 8px; font-size: 15px; }
   .sc-progress i { animation-duration: 2.4s; }
 }
 
+/* ---------- SplitSmart refinement ---------- */
 html {
   --ss-radius-card: 18px;
   --ss-radius-control: 10px;
@@ -121,6 +130,8 @@ html .dashboard-page .list-row, html .groups-page .list-row { border: 1px solid 
 html .dashboard-page .list-row + .list-row, html .groups-page .list-row + .list-row { margin-top: 8px; }
 html .dashboard-page .list-row:hover, html .groups-page .list-row:hover { border-color: var(--lime-edge); border-radius: 12px; background: var(--accent-soft); }
 
+/* Organic workflow path: the nodes stay readable while the SVG supplies the
+   flowing connection instead of a conventional progress bar. */
 .workflow-steps { position: relative; display: block; width: min(100%, 780px); max-width: none; min-height: 92px; margin: 0 0 26px; overflow: hidden; }
 .workflow-path { position: absolute; inset: 0 0 0; z-index: 0; width: 100%; height: 72px; overflow: visible; pointer-events: none; }
 .workflow-path path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
@@ -141,6 +152,7 @@ html .dashboard-page .list-row:hover, html .groups-page .list-row:hover { border
   .workflow-path-progress, .workflow-path-flow { stroke-dasharray: none; animation: none; }
 }
 
+/* Assignment command surface */
 html .assign-page > .panel:first-of-type { padding: 18px 20px; }
 .assign-page > .panel:first-of-type > div:first-child { margin-bottom: 14px !important; }
 .assign-page > .panel:first-of-type .button-row { gap: 8px; }
@@ -157,6 +169,7 @@ html .assign-page > .panel:first-of-type { padding: 18px 20px; }
 .ar-status { margin-top: 6px; }
 .ar-status:empty { display: none; }
 .claim-footnote { display: none; }
+/* Claim page item grid: every item is one equal-height cell; "Split into units" lives inside its card */
 .claim-grid { align-items: start; align-content: start; }
 .claim-grid .claim-item { min-height: 84px; box-sizing: border-box; }
 .claim-entry { position: relative; display: grid; min-width: 0; align-self: start; }
@@ -166,6 +179,7 @@ html .assign-page > .panel:first-of-type { padding: 18px 20px; }
 .claim-split-button {
   position: absolute; right: 12px; bottom: 10px; z-index: 2; margin: 0; padding: 4px 10px; min-height: 0; font-size: 12px; line-height: 1.3; white-space: nowrap;
 }
+/* Expanded quantity: the group spans the full row and its unit cards use the same column width as normal cards */
 .claim-unit-group { grid-column: 1 / -1; display: grid; gap: 10px; min-width: 0; max-width: 100%; box-sizing: border-box; align-self: start; padding: 10px; border: 1px solid var(--line); border-radius: var(--ss-radius-card); background: color-mix(in srgb, var(--surface-alt) 45%, transparent); }
 .claim-entry { display: grid; gap: 8px; min-width: 0; }
 .claim-entry[hidden], .claim-parent-card[hidden], .claim-inline-units[hidden] { display: none; }
@@ -174,12 +188,14 @@ html .assign-page > .panel:first-of-type { padding: 18px 20px; }
 .claim-unit-group-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 4px; color: var(--muted); font-size: 12px; }
 .claim-unit-group-head strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font-size: 13px; }
 .claim-unit-group-head .button { flex: none; white-space: nowrap; }
+/* Unrolled units stay side by side at one fixed card size; extra units scroll sideways inside the group, never the page. */
 .claim-unit-row { --claim-unit-w: 280px; display: flex; flex-wrap: nowrap; align-items: stretch; gap: 10px; min-width: 0; max-width: 100%;
   overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity;
   padding: 2px 2px 10px; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
 .claim-unit-row .claim-item { flex: 0 0 var(--claim-unit-w); width: var(--claim-unit-w); min-width: 0; scroll-snap-align: start; }
 .claim-unit-label { color: var(--muted); font-weight: 600; white-space: nowrap; }
 
+/* Direct claim links are a focused claimant experience: no host navigation. */
 html .app-shell:has(.claim-page) .sidebar { display: none; }
 html .app-shell:has(.claim-page) .main { margin-left: 0; }
 html .app-shell:has(.claim-page) .topbar [data-action="new-bill"] { display: none; }
@@ -219,6 +235,7 @@ html .app-shell:has(.claim-page) .mobile-menu { display: none; }
   .site-footer nav { justify-content: flex-start; }
 }
 
+/* Compact customer claims panel */
 .gas-responses-panel { margin: 20px 0 0; padding: 18px 20px; }
 .gas-responses-header { align-items: center; margin-bottom: 14px; }
 .gas-responses-header h2 { margin: 0; }
@@ -230,6 +247,7 @@ html .app-shell:has(.claim-page) .mobile-menu { display: none; }
 .gas-responses-panel > .empty h3 { margin: 0; font-size: 14px; }
 .gas-responses-panel > .empty p { display: none; }
 
+/* Remaining-items treatment */
 .remaining-items-card { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin: 0 0 16px; padding: 16px 18px; border: 1px solid var(--warning-line); border-radius: var(--ss-radius-card); background: var(--warning-soft); color: var(--ink); }
 .remaining-items-copy { min-width: 0; flex: 1 1 420px; }
 .remaining-items-title { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 750; }
@@ -239,6 +257,7 @@ html .app-shell:has(.claim-page) .mobile-menu { display: none; }
 .remaining-items-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 .remaining-items-actions .button { white-space: nowrap; }
 
+/* Dedicated Share Claims overlay — built entirely on the site's theme tokens, so it follows the light and dark themes */
 .share-claims-overlay {
   position: fixed; inset: 0; z-index: 5000; display: grid; place-items: center; padding: 24px;
   background: rgba(31, 38, 24, .26);
@@ -327,6 +346,10 @@ html[data-theme="dark"] .share-claims-overlay { background: rgba(16, 19, 15, .45
   .share-btn:active, .share-claims-close:active { transform: none; }
 }
 
+/* Assignment list: one vertical column of fixed-size cards. Every card (normal or unrolled unit) uses the same
+   --assign-card-w x --assign-card-h box, so content can never resize it. Unit cards sit side by side inside their
+   parent group, and wrap onto the next row (never scroll) when a row is full. The width only drops below 373px
+   when the screen cannot hold a card (group border + padding = 18px), and then it drops for ALL cards equally. */
 .assign-split { grid-template-columns: minmax(0, 1fr); }
 .assign-split > *, .claim-items { min-width: 0; }
 .assign-grid {
@@ -355,6 +378,7 @@ html[data-theme="dark"] .share-claims-overlay { background: rgba(16, 19, 15, .45
   width: 100%; max-width: 100%; min-width: 0; padding: 42px 8px 8px; border: 1px solid var(--line); border-radius: var(--ss-radius-card);
   background: color-mix(in srgb, var(--surface-alt) 55%, transparent); overflow: visible;
 }
+/* Units keep the exact standard card size; when a row is full the next unit wraps below (no scrolling). */
 .assign-unit-group > .assign-row { flex: 0 0 var(--assign-card-w); width: var(--assign-card-w); }
 .assign-unit-label { position: absolute; top: 10px; left: 14px; margin: 0; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
 @media (max-width: 700px) {

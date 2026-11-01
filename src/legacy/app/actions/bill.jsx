@@ -1,3 +1,4 @@
+/** SplitSmart — Click action handlers: bill. */
 import { uid } from '../../state.jsx';
 import { handleReceiptScan } from '../commands.jsx';
 import { S, currentBill, members, persistActiveOuting, toast } from '../core.jsx';

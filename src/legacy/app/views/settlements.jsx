@@ -1,3 +1,4 @@
+/** SplitSmart — Settlements view. */
 import { formatCurrency, netBalances, minimumCashFlow } from '../../algorithm.jsx';
 import { paymentUri, isValidUpiId } from '../../qr.jsx';
 import { $, S, esc, icon } from '../core.jsx';

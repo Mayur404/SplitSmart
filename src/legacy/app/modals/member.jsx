@@ -1,3 +1,4 @@
+/** SplitSmart — Member edit modal. */
 import { uid, saveRosters } from '../../state.jsx';
 import { $, S, toast } from '../core.jsx';
 import { renderGroups } from '../views/groups.jsx';

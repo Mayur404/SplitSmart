@@ -1,3 +1,4 @@
+/** SplitSmart — Settings view. */
 import { $ } from '../core.jsx';
 import { renderHeader } from './chrome.jsx';
 

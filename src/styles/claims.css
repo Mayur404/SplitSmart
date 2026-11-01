@@ -1,7 +1,14 @@
+/**
+ * SplitSmart — claims.css (loaded last)
+ * 1) Quieter sidebar footer   2) Rounded, separated item cards on the Assign step
+ * 3) The self-claim ("Claims") page.
+ * Colours come from the theme tokens in theme.css, so light and dark both work.
+ * Cards deliberately carry no backdrop-filter: they animate, and the blur is invisible on a flat page.
+ */
 html:root {
-  --r-card: 20px;      
-  --r-item: 18px;       
-  --r-inner: 14px;   
+  --r-card: 20px;       /* major surfaces: header, summary, item cards */
+  --r-item: 18px;       /* claim rows */
+  --r-inner: 14px;      /* nested surfaces: fact tiles, textarea */
   --claim-ease: cubic-bezier(.22, 1, .36, 1);
   --card-shadow: 0 1px 2px rgba(50, 62, 30, .08), 0 10px 22px -14px rgba(50, 62, 30, .35);
   --card-shadow-hover: 0 2px 4px rgba(50, 62, 30, .10), 0 16px 30px -14px rgba(50, 62, 30, .42);
@@ -29,6 +36,7 @@ html[data-theme="dark"] {
 .ai-status.is-ok { color: var(--accent-strong); }
 .ai-names { color: var(--ink-secondary); overflow-wrap: anywhere; }
 
+/* ---------- Claims page ---------- */
 .claim-page { max-width: 1080px; margin: 4px auto 0; display: grid; gap: 18px; padding-bottom: env(safe-area-inset-bottom, 0px); }
 .claim-page h1, .claim-page h2, .claim-page h3 { font-family: inherit; }
 
@@ -139,6 +147,7 @@ html[data-theme="dark"] {
   html .assign-page .assignment-item, .claim-page *, .claim-page *::before, .assign-page .claim-item, .assign-page .claim-person { animation: none !important; transition: none !important; translate: none !important; scale: none !important; }
 }
 
+/* ---------- Tablet / mobile ---------- */
 @media (max-width: 960px) {
   .claim-layout { grid-template-columns: minmax(0, 1fr); }
   .claim-summary {
@@ -174,9 +183,12 @@ html[data-theme="dark"] {
   .topbar .button { white-space: nowrap; }
 }
 
+/* The app frame clips with overflow:hidden / auto, which makes it the sticky scrollport even though it never scrolls
+   (so position:sticky never engaged). On the Claims page only, clip instead: same look, but sticky works against the viewport. */
 html .app-shell:has(.claim-page), html .main:has(.claim-page) { overflow: clip; }
 
 
+/* ---------- Assign step: people on top, dishes below (same look as the Claims page) ---------- */
 .assign-split { display: grid; gap: 22px; margin-bottom: 18px; }
 .assign-who legend { font-size: 15px; font-weight: 700; }
 .ap-person { font: inherit; background: none; border: 0; padding: 0; text-align: left; color: inherit; touch-action: manipulation; }
@@ -202,6 +214,8 @@ html .app-shell:has(.claim-page), html .main:has(.claim-page) { overflow: clip; 
 .assign-row:not(.is-selected)[data-state="solo"], .assign-row:not(.is-selected)[data-state="shared"] { border-color: color-mix(in srgb, var(--lime) 28%, var(--glass-border)); }
 .assign-row.is-dnd-src, .claim-item.is-dnd-src, .claim-person.is-dnd-src, .ap-person.is-dnd-src { opacity: .72; scale: .985; transition: opacity 120ms, scale 120ms; }
 
+
+/* Manual Google Sheets refresh and personal/common claim links */
 .gas-responses-panel { margin: 24px 0; padding: 20px; width: 100%; box-sizing: border-box; overflow-wrap: anywhere; }
 .gas-responses-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
 .gas-update-button { flex: 0 0 auto; }

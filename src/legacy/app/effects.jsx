@@ -1,3 +1,4 @@
+/** SplitSmart — Page entrance motion, heading reveal and settlement confetti. */
 import { $, S } from './core.jsx';
 
 let pageMotionObserver = null;
@@ -27,6 +28,7 @@ export function setupPageMotion() {
   targets.forEach(target => pageMotionObserver.observe(target));
 }
 
+/* ---------- Navigation heading reveal ---------- */
 export function animatePageHeadings() {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
@@ -35,6 +37,8 @@ export function animatePageHeadings() {
     const label = (heading.innerText || heading.textContent || '').replace(/\s+/g, ' ').trim();
     if (!label) return;
 
+    // Keep the original h1 and its content semantics. The duplicate visual layer is hidden
+    // from assistive technology; the h1 receives one stable accessible name.
     if (!heading.hasAttribute('aria-label')) heading.setAttribute('aria-label', label);
 
     const stage = document.createElement('span');
@@ -57,7 +61,7 @@ export function animatePageHeadings() {
   });
 }
 
-
+/* ---------- Settlement entrance celebration ---------- */
 export function clearSettlementBurst() {
   if (settlementBurstTimeout) window.clearTimeout(settlementBurstTimeout);
   settlementBurstTimeout = null;

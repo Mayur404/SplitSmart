@@ -1,3 +1,9 @@
+/**
+ * SplitSmart ↔ Google Apps Script bridge.
+ * JSONP transport for the separately hosted React/Vite frontend.
+ * Personal/common participant identity is carried by the encoded claim URL;
+ * Apps Script validates the participant against the bill's roster.
+ */
 import { FORM_BRIDGE_WEB_APP_URL } from "../config/formBridge.jsx";
 
 function endpoint() {
@@ -113,15 +119,28 @@ function jsonp(action, params = {}) {
   });
 }
 
+/** Create/reuse the owner mapping for one bill. */
 export const createForm = payload => jsonp("createForm", { payload });
 
+/** Retrieve a form owned by this browser/account key. */
 export const getOwnerForm = ownerKey => jsonp("getOwnerForm", { ownerKey });
 
+/**
+ * Submit a claim for the given bill and round.
+ * Signature intentionally matches app.jsx:
+ * gasSubmitResponse(formId, claimRound, answers)
+ */
 export const submitResponse = (formId, claimRound, answers) =>
   jsonp("submitResponse", { formId, claimRound, answers });
 
+/** Retrieve responses for the form associated with this owner key. */
 export const getOwnerResponses = ownerKey =>
   jsonp("getOwnerResponses", { ownerKey });
 
+/** Open or close customer submissions for one bill. */
 export const setClaimsOpen = (ownerKey, formId, acceptingClaims) =>
   jsonp("setClaimsOpen", { ownerKey, formId, acceptingClaims });
+
+/** Clear the previous common-claim round and open a fresh round. */
+export const resetClaims = (ownerKey, formId, claimRound) =>
+  jsonp("resetClaims", { ownerKey, formId, claimRound });

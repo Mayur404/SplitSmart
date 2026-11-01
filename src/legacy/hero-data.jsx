@@ -1,3 +1,9 @@
+/**
+ * SplitSmart — hero-data.jsx
+ * Sample dinner for the landing-page story. Every number shown in the
+ * animation is derived here from the real calculation engine (algorithm.jsx),
+ * so the hero can never drift from what the product actually computes.
+ */
 import { calculateShares, allocateLargestRemainder, formatCurrency } from './algorithm.jsx';
 
 const FRIENDS = [
@@ -6,6 +12,7 @@ const FRIENDS = [
   { id: 'rahul', name: 'Rahul', initial: 'R' }
 ];
 
+// Same dinner as the product's demo bill (House of Thali), amounts in paise.
 const DISHES = [
   { id: 'biryani', label: 'Veg Biryani',    totalPaise: 52000, eaters: ['aman'] },
   { id: 'naan',    label: 'Butter Naan ×2', totalPaise: 8000,  eaters: ['aman', 'sneha'] },
@@ -15,6 +22,7 @@ const DISHES = [
 const TAX = { cgst: 5800, sgst: 5800, serviceCharge: 0 };
 const DISCOUNT = 1600;
 
+/** Whole rupees read cleanly ("₹520"); anything else keeps its paise. */
 export const shortMoney = paise => (paise % 100 === 0 ? `₹${paise / 100}` : formatCurrency(paise));
 
 export function buildStory() {
@@ -28,6 +36,7 @@ export function buildStory() {
 
   const friends = FRIENDS.map((f, i) => ({ ...f, ...shares[i] }));
 
+  // Which friend pays how much of each dish (same split calculateShares uses).
   const dishes = DISHES.map(d => {
     const split = allocateLargestRemainder(d.totalPaise, d.eaters.map(() => 1));
     return {
@@ -36,6 +45,7 @@ export function buildStory() {
     };
   });
 
+  // Invariants the animation relies on. If they ever fail we fall back to a static frame.
   const sumShares = friends.reduce((a, f) => a + f.sharePaise, 0);
   const sumFood = friends.reduce((a, f) => a + f.foodPaise, 0);
   const ok = sumShares === totalPaise && sumFood === foodTotal;

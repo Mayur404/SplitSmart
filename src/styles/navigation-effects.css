@@ -1,7 +1,10 @@
+/* SplitSmart navigation-only effects. No existing design tokens or component styles are changed. */
 #app h1 {
   font-family: "Manrope", var(--font-stack), sans-serif;
 }
 
+/* The reference reveals a crisp leading edge from left to right, with only the unrevealed
+   portion softly defocused. Two aligned layers create that moving reveal without layout shift. */
 #app h1.ss-heading-reveal .ss-heading-stage {
   position: relative;
   display: inline-block;

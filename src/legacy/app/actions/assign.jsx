@@ -1,3 +1,4 @@
+/** SplitSmart — Click action handlers: assign. */
 import { unrollItem, undoUnrollItem } from '../../algorithm.jsx';
 import { executeNaturalLanguageCommand, handleVoiceCommand } from '../commands.jsx';
 import { $, S, currentBill, members, toast } from '../core.jsx';

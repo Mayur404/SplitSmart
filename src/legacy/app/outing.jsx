@@ -1,9 +1,11 @@
+/** SplitSmart — Outing session creation and saving to recent history. */
 import { uid, freshRoster, saveRecent } from '../state.jsx';
 import { S, members, persistActiveOuting, toast } from './core.jsx';
 import { go } from './router.jsx';
 import { syncBillFromDom } from './views/bill.jsx';
 import { computeBillShares } from './views/breakdown.jsx';
 
+// Outing Session Initialization
 export function initOuting(group) {
   S.activeGroup = group || S.rosters[0] || freshRoster('My Outing', 4);
   S.outingSession = {
@@ -32,6 +34,7 @@ export function initOuting(group) {
   go('bill');
 }
 
+// Save Current Outing to Recent History
 export function saveCurrentOutingToRecent() {
   syncBillFromDom();
   const calc = computeBillShares();

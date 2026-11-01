@@ -1,3 +1,4 @@
+/** SplitSmart — Click action handlers: settlement. */
 import { toPaise, formatCurrency } from '../../algorithm.jsx';
 import { $$, $, currentBill, members, toast } from '../core.jsx';
 import { copyPaymentDetails, openQRModal, openSplitThresholdModal } from '../modals/payment.jsx';

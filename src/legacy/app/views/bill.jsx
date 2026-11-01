@@ -1,3 +1,4 @@
+/** SplitSmart — Bill creation view. */
 import { uid } from '../../state.jsx';
 import { toPaise, formatCurrency } from '../../algorithm.jsx';
 import { GEMINI_CONFIGURED } from '../../../config/gemini.jsx';

@@ -1,5 +1,14 @@
+/**
+ * SplitSmart — share.jsx
+ * Stateless WhatsApp Self-Claim, Compressed URL State, and Claim Importing.
+ *
+ * Fully resilient: Includes native vanilla JS LZ-String compressor/decompressor
+ * so sharing works 100% offline even if CDN libraries are blocked by corporate firewalls.
+ */
+
 import { toPaise } from './algorithm.jsx';
 
+// Native LZ-String implementation for 100% offline / CDN-blocked fallback
 const keyStrUriSafe = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-$';
 const baseReverseDic = {};
 
@@ -370,7 +379,14 @@ function nativeDecompressFromEncodedURIComponent(input) {
   return nativeDecompress(input.length, 32, function(index) { return getBaseValue(keyStrUriSafe, input.charAt(index)); });
 }
 
+/**
+ * Build minimum payload required for self-claims.
+ * Includes the bill roster because common claim links need a participant picker.
+ * It excludes API keys, image data, and other private credentials.
+ */
 export function makeSharePayload(session, members, items) {
+  // Optional, additive fields so a claimant can see their tax/discount share. Older links simply lack them.
+  // adjPaise = (CGST + SGST + service charge) - discount, computed with the same toPaise() the host's totals use.
   const tax = session.tax || {};
   const adjPaise = toPaise(tax.cgst) + toPaise(tax.sgst) + toPaise(tax.serviceCharge) - toPaise(session.discount);
   return {
@@ -379,6 +395,8 @@ export function makeSharePayload(session, members, items) {
     sessionId: String(session.id || 'outing'),
     outing: String(session.restaurantName || 'Shared Outing').slice(0, 80),
     date: String(session.date || '').slice(0, 10),
+    // Keep the legacy names array for existing claim UI, and add stable IDs
+    // so common claim links can identify participants consistently.
     participants: members.map(m => String(m.name).trim().slice(0, 60)),
     participantRecords: members.map((m, index) => ({
       id: String(m.id || `participant-${index + 1}`),
@@ -389,12 +407,16 @@ export function makeSharePayload(session, members, items) {
       name: String(item.name || 'Item').trim().slice(0, 80),
       quantity: Math.max(1, Number(item.quantity) || 1),
       costPaise: Math.trunc(Number(item.totalPaise) || 0),
+      // Optional, additive display fields. Only real values are copied, never inferred; older links simply lack them.
       ...(['VEG', 'NON-VEG', 'ANY'].includes(item.category) ? { category: item.category } : {}),
       ...(item.unrolledFrom ? { unrolledFrom: String(item.unrolledFrom) } : {})
     }))
   };
 }
 
+/**
+ * Compress JSON into an URL-safe LZ-String component.
+ */
 function compressJsonForLink(value) {
   const json = JSON.stringify(value);
   const compressFn = (typeof window !== 'undefined' && window.LZString?.compressToEncodedURIComponent)
@@ -413,6 +435,9 @@ function shareBaseUrl() {
   return `${origin}${pathname}`;
 }
 
+/**
+ * Common link: the compressed bill is the complete hash payload.
+ */
 export function encodeShare(payload) {
   const compressed = compressJsonForLink(payload);
   if (compressed.length > 6000) {
@@ -421,9 +446,13 @@ export function encodeShare(payload) {
   return `${shareBaseUrl()}#data=${compressed}`;
 }
 
+/**
+ * Safely decode and validate shared state from URL hash.
+ */
 export function decodeShare(hash) {
   try {
     let clean = (hash || '').trim();
+    // Decode if fully URL encoded (e.g. %23data%3D...)
     if (clean.startsWith('%23') || clean.includes('%3D') || clean.includes('%3d')) {
       try {
         clean = decodeURIComponent(clean);
@@ -441,6 +470,7 @@ export function decodeShare(hash) {
       rawData = clean;
     }
 
+    // If rawData contains URL encoding (like %2B for +), decode it
     if (rawData.includes('%')) {
       try {
         rawData = decodeURIComponent(rawData);
@@ -479,6 +509,7 @@ export function decodeShare(hash) {
 
     const p = JSON.parse(decompressed);
 
+    // Validate schema
     if (p.version !== 1) {
       throw new Error('This shared link was created with an incompatible version.');
     }
@@ -492,6 +523,7 @@ export function decodeShare(hash) {
       throw new Error('Item list is empty or exceeds limit (100).');
     }
 
+    // Validate items
     for (const item of p.items) {
       if (typeof item.id !== 'string' || typeof item.name !== 'string' || !Number.isInteger(item.costPaise)) {
         throw new Error('Malformed item in shared data.');
@@ -504,6 +536,10 @@ export function decodeShare(hash) {
   }
 }
 
+/**
+ * Format a participant's claim into a standard versioned message.
+ * e.g. SPLITSMART_CLAIM:{"version":1,"sessionId":"bill-123","user":"Aman","itemIds":["i1","i2"]}
+ */
 export function claimMessage(payload, userName, claimedItemIds) {
   const claimData = {
     version: 1,
@@ -514,6 +550,9 @@ export function claimMessage(payload, userName, claimedItemIds) {
   return `SPLITSMART_CLAIM:${JSON.stringify(claimData)}`;
 }
 
+/**
+ * Parse and validate a claim message pasted by the host.
+ */
 export function parseClaim(messageText, currentPayload = null, existingClaims = []) {
   if (!messageText || typeof messageText !== 'string') {
     throw new Error('Please paste a valid SPLITSMART_CLAIM message.');
@@ -556,6 +595,7 @@ export function parseClaim(messageText, currentPayload = null, existingClaims = 
     throw new Error('The claim contains no items.');
   }
 
+  // Check for duplicate claims from same user
   const alreadyClaimed = existingClaims.some(c => c.user === claim.user && c.itemIds.some(id => claim.itemIds.includes(id)));
   if (alreadyClaimed) {
     throw new Error(`A claim has already been imported for ${claim.user} with overlapping items.`);
@@ -564,6 +604,9 @@ export function parseClaim(messageText, currentPayload = null, existingClaims = 
   return claim;
 }
 
+/**
+ * Generate WhatsApp share intent URL.
+ */
 export function whatsappUrl(text) {
   return `https://wa.me/?text=${encodeURIComponent(text)}`;
 }

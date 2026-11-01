@@ -1,3 +1,4 @@
+/** SplitSmart — Click action handlers: general. */
 import { getRosters, saveRecent, getSettings, saveSettings, exportBackup } from '../../state.jsx';
 import { runSelfTests } from '../../algorithm.jsx';
 import { $, S, applyTheme, esc, icon, toast } from '../core.jsx';

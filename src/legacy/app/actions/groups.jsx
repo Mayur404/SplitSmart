@@ -1,3 +1,4 @@
+/** SplitSmart — Click action handlers: groups. */
 import { freshRoster, saveRosters } from '../../state.jsx';
 import { $, S, toast } from '../core.jsx';
 import { openMemberModal } from '../modals/member.jsx';

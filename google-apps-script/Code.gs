@@ -276,6 +276,48 @@ function submitResponse(formId, customerKey, claimRound, answers) {
   };
 }
 
+function resetClaims(ownerKey, formId, expectedRound) {
+  ownerKey = clean_(ownerKey, 200);
+  formId = clean_(formId, 200);
+  const form = getOwnerForm(ownerKey);
+  if (!form || form.formId !== formId) throw new Error("Owner does not control this bill.");
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    const current = getFormById_(formId);
+    if (!current) throw new Error("Bill form not found.");
+    if (Number(expectedRound) !== current.claimRound) {
+      throw new Error("The claim round has changed. Refresh claims and try again.");
+    }
+
+    const responses = sheet_("Responses");
+    const headers = headers_(responses);
+    const formCol = headers.indexOf("formId") + 1;
+    const last = responses.getLastRow();
+    if (last >= 2 && formCol > 0) {
+      const values = responses.getRange(2, formCol, last - 1, 1).getDisplayValues();
+      for (let i = values.length - 1; i >= 0; i--) {
+        if (values[i][0] === formId) responses.deleteRow(i + 2);
+      }
+    }
+
+    const nextRound = current.claimRound + 1;
+    const forms = sheet_("Forms");
+    forms.getRange(current.row, col_(forms, "claimRound")).setValue(nextRound);
+    forms.getRange(current.row, col_(forms, "acceptingClaims")).setValue(true);
+    return {
+      formId: formId,
+      claimRound: nextRound,
+      acceptingClaims: true,
+      clearedResponses: true,
+      message: "Previous claims cleared. A new common claim link is ready."
+    };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 function setClaimsOpen(ownerKey, formId, acceptingClaims) {
   ownerKey = clean_(ownerKey, 200);
   formId = clean_(formId, 200);
@@ -313,6 +355,7 @@ function apiJsonp_(e) {
       case "createCommonCustomerLink": result = createCommonCustomerLink(p.ownerKey); break;
       case "getPublicForm": result = getPublicForm(p.formId, p.customerKey); break;
       case "submitResponse": result = submitResponse(p.formId, p.customerKey, p.claimRound, JSON.parse(p.answers || "{}")); break;
+      case "resetClaims": result = resetClaims(p.ownerKey, p.formId, p.claimRound); break;
       case "setClaimsOpen": result = setClaimsOpen(p.ownerKey, p.formId, p.acceptingClaims === "true"); break;
       case "getOwnerResponses": result = getOwnerResponses(p.ownerKey); break;
       default: throw new Error("Unknown Apps Script API action.");

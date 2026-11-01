@@ -1,8 +1,21 @@
+/**
+ * SplitSmart — motion.jsx
+ * Boot loader dismissal, cursor halo, and the glass scroll popup.
+ *
+ * Scroll popup: press and drag a PERSON and a glass bubble blooms open with a scroll-wheel of DISHES;
+ * drag a DISH and the wheel lists the PEOPLE. Release over a row to assign it (the popup closes);
+ * release elsewhere and the popup stays open so you can scroll and tap rows (it stays open between taps).
+ * Touch: long-press. Also: Shift+click, right-click, Shift+Enter (or ↓ on the Assign page) on a person or dish.
+ * Assignment goes through the app's own state via the 'splitsmart:assign' event; nothing here touches data.
+ * The opening animation follows the reference clip: a small glass bubble forms, dips, then swells into the
+ * rounded panel while its content sharpens from a blur and settles with a soft overshoot.
+ */
 const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
 const finePointer = window.matchMedia('(hover: hover) and (pointer: fine)');
 const $ = (s, r = document) => r.querySelector(s);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 
+/* ---------- Boot loader ---------- */
 function hideBoot() {
   const el = $('#boot-loader');
   if (!el) return;
@@ -12,6 +25,7 @@ function hideBoot() {
 if (document.readyState === 'complete') requestAnimationFrame(hideBoot);
 else window.addEventListener('load', () => requestAnimationFrame(hideBoot), { once: true });
 
+/* ---------- Cursor halo ---------- */
 function initHalo() {
   if (!finePointer.matches || reduced.matches) return;
   const halo = document.createElement('div');
@@ -39,10 +53,12 @@ function initHalo() {
   document.documentElement.addEventListener('pointerleave', () => { shown = false; halo.classList.remove('is-visible'); });
 }
 
-const ROW = 56; 
+/* ---------- Wheel engine ---------- */
+const ROW = 56; // 52px row + 4px gap
 
 function createWheel(wheel, track, rows, onActive) {
   const n = rows.length, max = (n - 1) * ROW;
+  // A short list that fits the panel is laid out flat (like the reference clip); only long lists use the 3D wheel.
   const fit = n * ROW <= 236; let fitActive = 0;
   wheel.classList.toggle('is-fit', fit);
   let raw = 0, vel = 0, mode = 'idle', snapTarget = 0, raf = 0, last = 0, active = -1;
@@ -81,11 +97,11 @@ function createWheel(wheel, track, rows, onActive) {
     const dt = Math.min(0.032, (t - last) / 1000 || 0.016);
     last = t;
     if (mode === 'fling') {
-      vel *= Math.pow(0.0245, dt);              
+      vel *= Math.pow(0.0245, dt);               // ≈ 0.94 per frame at 60fps
       raw += vel * dt;
       if (raw < 0 || raw > max || Math.abs(vel) < 140) snap();
     }
-    if (mode === 'snap') {                      
+    if (mode === 'snap') {                       // damped spring, ζ≈0.78 → small overshoot
       const k = 300, c = 2 * 0.78 * Math.sqrt(k);
       vel += (-k * (raw - snapTarget) - c * vel) * dt;
       raw += vel * dt;
@@ -147,12 +163,14 @@ function createWheel(wheel, track, rows, onActive) {
   return {
     get active() { return active; },
     goTo: i => snap(i),
+    /** Scroll by dy px without snapping (used by edge auto-scroll while dragging). */
     nudge(dy) { if (fit) return; stop(); vel = 0; raw = clamp(raw + dy, 0, max); paint(); },
     settle: () => snap(),
     destroy() { stop(); clearTimeout(snapTimer); ac.abort(); }
   };
 }
 
+/* ---------- Glass scroll popup ---------- */
 let bubble = null;
 let drag = null;
 let suppressClickUntil = 0;
@@ -188,6 +206,7 @@ function closePopup(restoreFocus = true) {
   b.el.classList.add('is-closing');
   if (reduced.matches) { b.el.remove(); b.scrim.remove(); }
   else {
+    // Reverse of the opening: the panel draws back into a bubble and fades.
     b.glass.getAnimations().forEach(a => a.cancel());
     b.glass.animate([{ ...b.g.full, opacity: 1, transform: 'scale(1)' }, { ...b.g.circle, opacity: 0, transform: 'scale(.5)' }],
       { duration: 240, easing: 'cubic-bezier(.5,0,.75,0)', fill: 'forwards' });
@@ -198,6 +217,11 @@ function closePopup(restoreFocus = true) {
   if (restoreFocus && b.opener && document.contains(b.opener)) b.opener.focus({ preventScroll: true });
 }
 
+/**
+ * kind 'items'  → the source is a person; the wheel lists dishes.
+ * kind 'people' → the source is a dish;  the wheel lists people.
+ * (x, y) is where the bubble blooms — the pointer for a drag, the element for keyboard/context-menu opens.
+ */
 function openPopup(src, x, y, { mode = 'pick' } = {}) {
   closePopup(false);
   const kind = src.dataset.dnd === 'person' ? 'items' : 'people';
@@ -241,6 +265,7 @@ function openPopup(src, x, y, { mode = 'pick' } = {}) {
   el.append(glass, body);
   document.body.append(scrim, el);
 
+  // Placement: beside the pointer, flipped/clamped to the viewport; a bottom sheet on narrow screens.
   const w = el.offsetWidth, h = el.offsetHeight;
   let left, top, cx, cy;
   if (window.innerWidth < 520) {
@@ -284,6 +309,7 @@ function openPopup(src, x, y, { mode = 'pick' } = {}) {
   document.addEventListener('pointerdown', onOutside, true);
   wheelEl.addEventListener('wheel-tap', e => commit(e.detail, false));
 
+  // Opening: bubble forms → dips → swells into the panel; content sharpens from a blur and settles.
   if (!reduced.matches) {
     glass.animate([
       { ...g.circle, opacity: 0, transform: 'scale(.3)', offset: 0, easing: 'cubic-bezier(.2,.8,.3,1)' },
@@ -301,6 +327,7 @@ function openPopup(src, x, y, { mode = 'pick' } = {}) {
   return bubble;
 }
 
+/* ---------- Drag to open ---------- */
 const rowUnder = (x, y) => {
   const r = document.elementFromPoint(x, y)?.closest?.('.wheel-item');
   return r && bubble?.el.contains(r) ? r : null;
@@ -311,7 +338,7 @@ function dragFrame() {
   const b = bubble, wr = b.el.querySelector('.wheel').getBoundingClientRect();
   const inside = drag.x > wr.left - 24 && drag.x < wr.right + 24;
   const EDGE = 64;
-  let speed = 0;                                       
+  let speed = 0;                                           // edge auto-scroll while dragging
   if (inside && drag.y > wr.top - 16 && drag.y < wr.top + EDGE) speed = -(1 - (drag.y - wr.top + 16) / (EDGE + 16)) * 520;
   else if (inside && drag.y < wr.bottom + 16 && drag.y > wr.bottom - EDGE) speed = (1 - (wr.bottom + 16 - drag.y) / (EDGE + 16)) * 520;
   if (speed) b.wheel.nudge(speed / 60);
@@ -360,7 +387,7 @@ document.addEventListener('pointermove', e => {
   drag.x = e.clientX; drag.y = e.clientY;
   if (!drag.started) {
     const dist = Math.hypot(drag.x - drag.x0, drag.y - drag.y0);
-    if (drag.touch) { if (dist > 10) endDrag(); }             
+    if (drag.touch) { if (dist > 10) endDrag(); }               // finger is scrolling the page, not pressing
     else if (dist > 6) { startDrag(); }
   } else moveGhost();
 }, { passive: true });
@@ -368,7 +395,7 @@ document.addEventListener('pointermove', e => {
 const finishPointer = (e, cancelled) => {
   if (!drag || e.pointerId !== drag.id) return;
   if (drag.started) {
-    suppressClickUntil = performance.now() + 350;            
+    suppressClickUntil = performance.now() + 350;              // the click that follows a drag must not toggle the source
     const hit = !cancelled && bubble ? rowUnder(e.clientX, e.clientY) : null;
     if (hit) { const i = bubble.rowEls.indexOf(hit); const b = bubble; endDrag(); b.commit(i, true); return; }
   }
@@ -376,6 +403,7 @@ const finishPointer = (e, cancelled) => {
 };
 document.addEventListener('pointerup', e => finishPointer(e, false), true);
 document.addEventListener('pointercancel', e => finishPointer(e, true), true);
+// While a long-press drag is live on touch, keep the page from scrolling under the finger.
 document.addEventListener('touchmove', e => { if (drag?.started && e.cancelable) e.preventDefault(); }, { passive: false });
 document.addEventListener('selectstart', e => { if (drag) e.preventDefault(); }, true);
 
@@ -393,13 +421,14 @@ document.addEventListener('keydown', e => {
   if (bubble) return;
   const src = e.target.closest?.('[data-dnd]');
   if (!src || !src.closest(SCOPE)) return;
-  const arrow = e.key === 'ArrowDown' && !!src.closest('.assign-page'); 
+  const arrow = e.key === 'ArrowDown' && !!src.closest('.assign-page');   // native radios use arrows on the Claims page
   if (arrow || (e.key === 'Enter' && e.shiftKey)) {
     e.preventDefault(); e.stopPropagation();
     const r = src.getBoundingClientRect(); openPopup(src, r.left + r.width / 2, r.bottom, { mode: 'pick' });
   }
 }, true);
 
+// Close if the view changes away from the Assign / Claims page underneath the popup.
 const appEl = $('#app');
 if (appEl) new MutationObserver(() => { if (bubble && !document.querySelector(SCOPE)) closePopup(false); }).observe(appEl, { childList: true });
 

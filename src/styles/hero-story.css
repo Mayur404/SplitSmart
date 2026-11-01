@@ -1,3 +1,8 @@
+/**
+ * SplitSmart — hero-story.css (loaded after theme.css)
+ * Styles for the animated landing-page hero. Colours resolve from the theme
+ * tokens in theme.css; --hs-* only adds the scene's own palette per theme.
+ */
 .hero-story {
   --hs-table-top: #66804B; --hs-table-rim: #4B6434; --hs-table-line: rgba(255,255,255,.16); --hs-floor: rgba(50,66,34,.16);
   --hs-plate: #FAF8EE; --hs-plate-in: #EDE9D6; --hs-contact: rgba(32,44,22,.22);
@@ -40,11 +45,14 @@ html .hero-story {
 .hs-svg text { font-family: var(--font-stack); }
 .hs-num { font-variant-numeric: tabular-nums; }
 
+/* Reserve the box before layout, never shift */
 .hero-story-art { aspect-ratio: 440 / 520; }
 
+/* Lamp */
 .hs-cord { stroke: var(--line-strong); stroke-width: 2; fill: none; }
 .hs-shade { fill: var(--hs-lamp); } .hs-bulb { fill: #FFF3C4; }
 
+/* Friends */
 .hs-skin { fill: var(--skin); } .hs-hair { fill: var(--hs-hair); } .hs-shirt { fill: var(--shirt); }
 .hs-f0 { --skin: var(--hs-skin-a); --shirt: var(--hs-shirt-a); }
 .hs-f1 { --skin: var(--hs-skin-b); --shirt: var(--hs-shirt-b); }
@@ -53,6 +61,7 @@ html .hero-story {
 .hs-ring { fill: none; stroke: var(--lime); stroke-width: 3; }
 html:not([data-theme="dark"]) .hs-ring { stroke: #8FCB14; }
 
+/* Table & dishes */
 .hs-floor { fill: var(--hs-floor); } .hs-table-rim { fill: var(--hs-table-rim); } .hs-table-top { fill: var(--hs-table-top); }
 .hs-table-line { fill: none; stroke: var(--hs-table-line); stroke-width: 1.5; }
 .hs-contact { fill: var(--hs-contact); } .hs-plate { fill: var(--hs-plate); } .hs-plate-in { fill: var(--hs-plate-in); }
@@ -63,6 +72,7 @@ html:not([data-theme="dark"]) .hs-ring { stroke: #8FCB14; }
 .hs-paneer { fill: #C9602F; } .hs-herb-f { fill: #6E8F3A; }
 .hs-steam { fill: none; stroke: #F4F1E4; stroke-width: 3; stroke-linecap: round; }
 
+/* Share cards */
 .hs-conn { fill: none; stroke: var(--lime); stroke-width: 2; stroke-linecap: round; stroke-dasharray: 1; }
 html:not([data-theme="dark"]) .hs-conn { stroke: #8FCB14; }
 .hs-card { fill: var(--hs-card-ghost); stroke: var(--line-strong); stroke-width: 1.5; stroke-dasharray: 4 4; }
@@ -73,6 +83,7 @@ html:not([data-theme="dark"]) .hs-card.is-active { stroke: #8FCB14; }
 .hs-card-amt.is-ghost { fill: var(--muted); font-weight: 600; }
 .hs-chk { fill: var(--lime); stroke: var(--hs-card); stroke-width: 2; } .hs-chk-mark { fill: none; stroke: var(--on-lime); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 
+/* Bill */
 .hs-bill-shadow { fill: var(--hs-bill-shadow); }
 .hs-paper { fill: var(--hs-paper); stroke: var(--hs-paper-line); stroke-width: 1.2; }
 .hs-head { fill: var(--ink); font-size: 15.5px; font-weight: 750; letter-spacing: -.01em; }
@@ -83,9 +94,11 @@ html:not([data-theme="dark"]) .hs-hl { fill: #CFF56A; }
 .hs-total-l { fill: var(--ink); font-size: 15.5px; font-weight: 750; } .hs-total-a { fill: var(--ink); font-size: 20px; font-weight: 800; letter-spacing: -.02em; }
 .hs-pill-l { fill: var(--muted); font-size: 13px; font-weight: 650; } .hs-pill-a { fill: var(--ink); font-size: 27px; font-weight: 800; letter-spacing: -.025em; }
 
+/* Flying tokens */
 .hs-tok { fill: var(--lime); } .hs-tok-t { fill: var(--on-lime); font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .hs-token { filter: drop-shadow(0 3px 4px rgba(20,30,10,.28)); }
 
+/* Narrow screens: slightly larger touch target, tighter bar */
 @media (max-width: 640px) {
   .hero-story { max-width: none; }
   .hero-story-bar { padding: 12px 12px 0 16px; }
@@ -93,14 +106,20 @@ html:not([data-theme="dark"]) .hs-hl { fill: #CFF56A; }
   .hero-story-caption { font-size: 14px; }
 }
 
+/* Reduced motion: one still frame of the finished split, whole tagline visible, no controls */
 .hero-story[data-motion="static"] .hero-story-toggle { display: none; }
 .hero-story[data-motion="static"] .hero-story-caption { display: flex; flex-wrap: wrap; gap: 0 .4em; }
 .hero-story[data-motion="static"] .hero-story-caption span { opacity: 1 !important; transform: none !important; }
 @media (prefers-reduced-motion: reduce) { .hero-story-toggle { transition: none; } }
 
+/* Performance: the hero panel's backdrop blur sat over a near-flat page gradient (visually a no-op)
+   but forced the blur to be re-composited on every animation frame. Drop it for the hero only,
+   and give the scene its own compositor layer so repaints stay local to the illustration. */
 html .dashboard-hero { backdrop-filter: none; -webkit-backdrop-filter: none; }
 .hs-svg { will-change: transform; }
 
+/* Layout fix (pre-existing): between ~769px and ~1180px the sidebar leaves too little room for two columns,
+   so the 410px-minimum preview column crushed the headline to 0–110px. Stack the hero until both fit. */
 @media (max-width: 1259px) {
   html .dashboard-hero { grid-template-columns: minmax(0, 1fr); }
   html .dashboard-preview { width: 100%; max-width: 520px; justify-self: center; }

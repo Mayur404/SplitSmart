@@ -1,3 +1,4 @@
+/** SplitSmart — Shared state, DOM helpers, icons, toast and active-outing persistence. */
 import { getRosters, getRecent, getSettings } from '../state.jsx';
 
 export const S = {
@@ -8,21 +9,22 @@ export const S = {
   lastRenderedView: null,
   activeGroup: null,
   outingSession: null,
-  previousUnrolls: [], 
-  scanNotice: null,   
+  previousUnrolls: [], // Stack for undo unroll
+  scanNotice: null,    // { count } — shown once in the scanner after a successful scan
   importedClaims: [],
   pendingAmbiguityAction: null,
   recognitionInstance: null,
   assignmentDietFilter: 'ALL',
   assignmentSearchQuery: '',
-  assignActiveMemberId: '',   
+  assignActiveMemberId: '',   // the person the dish rows act on (Assign step)
+  // True only when the Assign view is entered from navigation, so toggling a chip never replays the entrance.
   assignAnimate: false,
   decodedClaimPayload: null,
   gasRefreshInFlight: false
 };
 S.activeGroup = S.rosters[0] || null;
 
-
+// DOM Selectors and Utilities
 export const $ = sel => document.querySelector(sel);
 
 export const $$ = sel => document.querySelectorAll(sel);
@@ -35,7 +37,7 @@ export const esc = str => String(str ?? '').replace(/[&<>"']/g, c => ({
   "'": '&#39;'
 }[c]));
 
-
+// Small inline icon set keeps the interface dependency-free and consistent.
 const ICON_PATHS = {
   plus: '<path d="M12 5v14M5 12h14"/>',
   arrowRight: '<path d="M5 12h14M13 6l6 6-6 6"/>',
@@ -75,6 +77,7 @@ export function restoreActiveOuting() {
   } catch { return null; }
 }
 
+// Apply Theme
 export function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
   const themeIcon = $('#theme-icon');
@@ -85,7 +88,7 @@ export function iconSvg(name) {
   return `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[name]}</svg>`;
 }
 
-
+// Toast Notification
 export function toast(message, isError = false) {
   const container = $('#toast-region');
   if (!container) return;
@@ -96,6 +99,7 @@ export function toast(message, isError = false) {
   setTimeout(() => el.remove(), 4000);
 }
 
+// Safe Group Member Access
 export function members() {
   return S.activeGroup?.members || [];
 }

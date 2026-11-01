@@ -1,3 +1,4 @@
+/** SplitSmart — Stateless self-claim view (direct link open). */
 import { read as readStore, write as writeStore } from '../../state.jsx';
 import { formatCurrency, calculateShares } from '../../algorithm.jsx';
 import { decodeShare } from '../../share.jsx';
@@ -15,6 +16,12 @@ export const claimDraftKey = p => {
   return `splitsmart:v2:claim:${formId}:${claimRound}:${p.sessionId}`;
 };
 
+/**
+ * Totals for one claimant, using the same engine the host uses (calculateShares).
+ * The claimant is modelled as one member and "everyone else" as a second, so tax and discount
+ * are allocated in proportion to food exactly as the host's review step does.
+ * Items shared with other people are split by the host once every claim is in; this is an estimate.
+ */
 export function claimTotals(p, selectedIds) {
   const food = p.items.reduce((a, it) => a + it.costPaise, 0);
   const adj = Number.isInteger(p.adjPaise) ? p.adjPaise : null;
@@ -89,6 +96,7 @@ export function renderClaim() {
     return;
   }
 
+  // Direct link loads bypass render(), so keep the breadcrumb/nav truthful here too.
   S.view = 'claim';
   setNav();
 
@@ -97,6 +105,7 @@ export function renderClaim() {
     ? p.participantRecords
     : p.participants.map((name, index) => ({ id: `participant-${index + 1}`, name }));
 
+  // Common claim link: each participant chooses their own name from the shared roster.
   const draft = readStore(claimDraftKey(p), null);
   const draftUser = draft && typeof draft.user === 'string' && p.participants.includes(draft.user) ? draft.user : '';
   const draftParticipantId = draft?.participantId || '';
@@ -122,7 +131,7 @@ export function renderClaim() {
     </label>`;
   }).join('');
 
-
+  // Same badge markup as the host's assignment cards. Shown only when the link carries a real value.
   const claimDietPill = it => ['VEG', 'NON-VEG', 'ANY'].includes(it.category)
     ? `<span class="pill ${it.category === 'VEG' ? 'pill-veg' : it.category === 'NON-VEG' ? 'pill-non-veg' : ''}">${esc(it.category)}</span>`
     : '';
@@ -139,7 +148,7 @@ export function renderClaim() {
       <span class="ci-price">${formatCurrency(it.costPaise)}</span>
     </label>`;
   };
-
+  // Units the host already unrolled arrive as separate quantity-1 items sharing `unrolledFrom`; keep them grouped.
   const preUnrolledGroups = new Map();
   p.items.forEach(it => {
     if (!it.unrolledFrom) return;
@@ -231,7 +240,7 @@ export function renderClaim() {
 
   syncClaim({ initial: true });
 
-
+  // Contact details are optional; formId identifies the bill for Sheets storage.
   const params = new URLSearchParams(window.location.search);
   if (params.get('formId')) {
     const submitButton = $('[data-action="submit-whatsapp-claim"]');
@@ -263,7 +272,7 @@ export function readClaimState() {
   return { user, participantId, ids };
 }
 
-
+/** Counts money up/down instead of jumping; falls back to an instant update for reduced motion. */
 export function tweenMoney(el, to, instant) {
   if (!el) return;
   const fmt = v => (el.dataset.signed === '1' && v > 0 ? '+' : '') + formatCurrency(v);
@@ -286,7 +295,7 @@ export function setClaimText(name, text) {
   if (el && el.textContent !== text) el.textContent = text;
 }
 
-
+/** Reflect the form (names, ticks) into cards, progress and totals. Runs on load and on every deliberate change. */
 export function syncClaim({ initial = false } = {}) {
   const p = S.decodedClaimPayload;
   if (!p || !$('.claim-page')) return;
@@ -320,14 +329,14 @@ export function syncClaim({ initial = false } = {}) {
   setClaimText('hint', !user ? 'Choose your name to continue.' : ids.size === 0 ? 'Select at least one item you shared.' : 'Ready. This prepares a message for your host.');
 
   if (!initial) {
-
+    // Any change after a message was prepared makes that message stale, so never leave it showing as done.
     const box = $('#claim-result-box');
     if (box?.firstElementChild) box.replaceChildren();
     writeStore(claimDraftKey(p), { user, participantId, ids: [...ids] });
   }
 }
 
-
+// One delegated listener for the whole page; no per-render listeners to leak or double-fire.
 document.addEventListener('change', e => {
   if (e.target.matches?.('[data-claim-item], input[data-claimant]') && $('.claim-page')) syncClaim();
 });

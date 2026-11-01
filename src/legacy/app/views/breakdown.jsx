@@ -1,3 +1,4 @@
+/** SplitSmart — Per-person breakdown and payer recording view. */
 import { toPaise, formatCurrency, calculateShares } from '../../algorithm.jsx';
 import { $$, $, S, currentBill, esc, icon, members, toast } from '../core.jsx';
 import { go } from '../router.jsx';

@@ -1,4 +1,4 @@
-
+/** SplitSmart — Dashboard view. */
 import { formatCurrency } from '../../algorithm.jsx';
 import { GEMINI_CONFIGURED } from '../../../config/gemini.jsx';
 import { heroStoryMarkup, mountHeroStory } from '../../hero-story.jsx';

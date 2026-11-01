@@ -1,3 +1,4 @@
+/** SplitSmart — Footer and static information pages (terms, privacy, support, report). */
 import { $, esc, toast } from '../core.jsx';
 
 const SUPPORT_EMAIL = String(import.meta.env.VITE_SUPPORT_EMAIL ?? '').trim();

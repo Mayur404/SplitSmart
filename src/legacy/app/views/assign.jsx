@@ -1,3 +1,4 @@
+/** SplitSmart — Item assignment view. */
 import { formatCurrency } from '../../algorithm.jsx';
 import { $$, $, S, currentBill, esc, icon, members } from '../core.jsx';
 import { renderGasResponses } from '../gas/responses.jsx';

@@ -1,8 +1,21 @@
+/**
+ * SplitSmart — qr.jsx
+ * NPCI UPI URI Generation, QR Rendering, Payment Deep Links, and Split-Payment Warnings.
+ */
+
+/**
+ * Validate standard UPI Virtual Payment Address (VPA) / UPI ID.
+ * Format: username@bankhandle (e.g. name@okhdfcbank, 9876543210@paytm)
+ */
 export function isValidUpiId(upiId) {
   if (!upiId || typeof upiId !== 'string') return false;
   return /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z0-9.\-_]{2,64}$/.test(upiId.trim());
 }
 
+/**
+ * Generate standard NPCI UPI payment deep link.
+ * Format: upi://pay?pa=...&pn=...&am=...&cu=INR&tn=...
+ */
 export function paymentUri({ upiId, name, amountPaise, note = 'SplitSmart settlement' }) {
   if (!isValidUpiId(upiId)) {
     throw new Error('Please configure a valid UPI ID (e.g., name@okhdfcbank) to create a payment link.');
@@ -27,11 +40,16 @@ export function paymentUri({ upiId, name, amountPaise, note = 'SplitSmart settle
   return `upi://pay?${params.toString()}`;
 }
 
+/**
+ * Render QR code using QRCode.js library.
+ * Cleans the container first and handles CDN unavailability gracefully.
+ */
 export function renderQR(container, uri, size = 180) {
   if (!container) return false;
   container.replaceChildren();
 
   if (typeof window.QRCode !== 'function') {
+    // Try to dynamically load fallback script if not yet present
     if (typeof document !== 'undefined' && !document.querySelector('script[data-qr-fallback]')) {
       const s = document.createElement('script');
       s.src = 'https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js';
@@ -70,6 +88,11 @@ export function renderQR(container, uri, size = 180) {
   }
 }
 
+/**
+ * Split a large payment amount (e.g. > ₹2,000 threshold) into smaller equal instructions.
+ * Residual paise are distributed to the first part so that:
+ * sum(parts) === amountPaise exactly.
+ */
 export function splitPayment(amountPaise, partsCount = 2) {
   const tot = Math.trunc(Number(amountPaise) || 0);
   const n = Math.max(2, Math.trunc(Number(partsCount) || 2));

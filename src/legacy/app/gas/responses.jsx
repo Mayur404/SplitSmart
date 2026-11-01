@@ -1,3 +1,4 @@
+/** SplitSmart — Google Apps Script claim responses. */
 import { getOwnerResponses as gasGetOwnerResponses } from '../../form-bridge.jsx';
 import { unrollItem } from '../../algorithm.jsx';
 import { S, currentBill, members, toast } from '../core.jsx';
@@ -101,7 +102,12 @@ export function renderGasResponses(rows = [], { updatedAt = null, loading = fals
   });
   controls.appendChild(presentLink);
 
-
+  const newLink = document.createElement('button');
+  newLink.type = 'button';
+  newLink.className = 'button button-primary';
+  newLink.dataset.action = 'get-new-common-claim-link';
+  newLink.textContent = 'Get new claim link';
+  controls.appendChild(newLink);
 
   box.appendChild(controls);
 

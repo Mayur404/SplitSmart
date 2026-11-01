@@ -1,5 +1,7 @@
+/** SplitSmart — Mobile navigation drawer. */
 import { $ } from './core.jsx';
 
+// Mobile navigation drawer with a real scrim and accessible expanded state.
 export function setSidebarOpen(open) {
   $('#sidebar')?.classList.toggle('open', open);
   $('#sidebar-scrim')?.classList.toggle('open', open);

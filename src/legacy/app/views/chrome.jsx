@@ -1,3 +1,6 @@
+/** SplitSmart — Shared page header and workflow stepper markup. */
+
+// Header HTML Helper
 export function renderHeader(title, subtitle, actionsHtml = '') {
   return `
     <div class="page-head">

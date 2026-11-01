@@ -1,6 +1,7 @@
+/** SplitSmart — Click action handlers: claims. */
 import { $, currentBill, toast } from '../core.jsx';
 import { refreshGasResponses, renderGasResponses } from '../gas/responses.jsx';
-import { generateWhatsAppClaim, promptImportClaim, shareClaimUrl } from '../gas/share.jsx';
+import { generateWhatsAppClaim, getNewCommonClaimLink, promptImportClaim, shareClaimUrl } from '../gas/share.jsx';
 import { gasResponseCache, gasResponseUpdatedAt, readGasBillMeta, readSavedGasResponses } from '../gas/storage.jsx';
 import { expandedClaimItems } from '../views/claim.jsx';
 
@@ -10,6 +11,7 @@ export const ACTIONS = [
   'share-claim-link',
   'open-customer-claims',
   'refresh-gas-responses',
+  'get-new-common-claim-link',
   'import-claim-modal',
   'submit-whatsapp-claim'
 ];
@@ -61,6 +63,11 @@ export async function handle(action, actionBtn) {
       const shareDialog = $('#share-dialog');
       if (shareDialog?.open) shareDialog.close();
       refreshGasResponses();
+      break;
+    }
+
+    case 'get-new-common-claim-link': {
+      getNewCommonClaimLink();
       break;
     }
 

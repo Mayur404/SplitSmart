@@ -1,3 +1,7 @@
+  /**
+ * SplitSmart — vision.jsx
+ * Client-Side Image Resizing, JPEG Compression, Multi-Model Gemini Receipt Extraction, and JSON Validation.
+ */
 
 export const CANDIDATE_MODELS = [
   'gemini-2.5-flash',
@@ -9,6 +13,10 @@ export const CANDIDATE_MODELS = [
   'gemini-1.5-flash-latest'
 ];
 
+/**
+ * Resize and compress receipt image to max 1024px dimension at 0.8 quality.
+ * Returns { data: base64String, mimeType: 'image/jpeg' }.
+ */
 export async function compressImage(file) {
   if (!file || !file.type.startsWith('image/')) {
     throw new Error('Please select a valid image file (JPEG, PNG, WEBP, etc.).');
@@ -20,6 +28,7 @@ export async function compressImage(file) {
     const img = new Image();
     img.src = objectUrl;
 
+    // Wait for image decode with fallback to onload
     await new Promise((resolve, reject) => {
       if (img.decode) {
         img.decode().then(resolve).catch(() => {
@@ -53,6 +62,7 @@ export async function compressImage(file) {
       throw new Error('Canvas 2D context is not available.');
     }
 
+    // High quality downscaling
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
@@ -79,6 +89,9 @@ export async function compressImage(file) {
   }
 }
 
+/**
+ * Convert Blob to Base64 string without data URI prefix.
+ */
 function blobToBase64(blob) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -92,6 +105,10 @@ function blobToBase64(blob) {
   });
 }
 
+/**
+ * Validate and sanitize extracted receipt data.
+ * Recalculates item totals and checks for discrepancies against receipt's stated grand total.
+ */
 export function validateReceipt(raw) {
   if (!raw || typeof raw !== 'object') {
     throw new Error('AI output is not a valid JSON object.');
@@ -142,6 +159,7 @@ export function validateReceipt(raw) {
   const serviceCharge = parseMoney(tax.serviceCharge, 'Service charge');
   const discount = parseMoney(raw.discount, 'Discount');
 
+  // Recalculate totals in JavaScript (never trust AI calculations)
   const calculatedFoodSubtotal = items.reduce((acc, it) => acc + it.totalPrice, 0);
   const calculatedGrandTotal = Math.max(0, Math.round((calculatedFoodSubtotal + cgst + sgst + serviceCharge - discount) * 100) / 100);
 
@@ -169,6 +187,9 @@ export function validateReceipt(raw) {
   };
 }
 
+/**
+ * Query the models.list endpoint to get all models available on this API key.
+ */
 export async function listAvailableModels(apiKey) {
   if (!apiKey || typeof apiKey !== 'string' || !apiKey.trim()) {
     throw new Error('Please provide an API key.');
@@ -188,6 +209,12 @@ export async function listAvailableModels(apiKey) {
     .map(m => m.name.replace(/^models\//, ''));
 }
 
+/**
+ * Scan receipt with automatic model fallback cascade.
+ * Tries the preferred model (gemini-2.5-flash by default).
+ * If Google returns 404 (model not found / restricted for this API key),
+ * automatically cascades through alternative models (gemini-2.0-flash, gemini-1.5-flash, etc.)
+ */
 export async function scanReceipt(file, apiKey, preferredModel = 'auto', onProgress = null) {
   if (!apiKey || typeof apiKey !== 'string' || !apiKey.trim()) {
     throw new Error('Please configure your Gemini API key in Settings before scanning.');
@@ -242,6 +269,7 @@ If a tax or discount is not present, use 0. Do not include markdown ticks or exp
     }
   };
 
+  // Determine models to try
   let modelsToTry = [...CANDIDATE_MODELS];
   if (preferredModel && preferredModel !== 'auto') {
     modelsToTry = [preferredModel, ...CANDIDATE_MODELS.filter(m => m !== preferredModel)];
@@ -272,6 +300,7 @@ If a tax or discount is not present, use 0. Do not include markdown ticks or exp
           body: JSON.stringify(requestBody)
         });
 
+        // If 404, this specific model is not available or restricted for this account. Fallback to next.
         if (response.status === 404) {
           lastError = new Error(`Model "${model}" returned HTTP 404 Not Found.`);
           continue;
@@ -297,6 +326,7 @@ If a tax or discount is not present, use 0. Do not include markdown ticks or exp
           throw new Error(`Gemini (${model}) did not return any readable content for this image.`);
         }
 
+        // Strip markdown code fences if present (e.g. ```json ... ```)
         const cleanJson = candidateText.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
 
         let parsed;
@@ -310,7 +340,7 @@ If a tax or discount is not present, use 0. Do not include markdown ticks or exp
         validated.modelUsed = model;
         return validated;
       } catch (err) {
-        
+        // If it's a fatal authentication or quota error, rethrow immediately
         if (err.message.includes('API key is invalid') || err.message.includes('rate limit') || err.name === 'AbortError') {
           throw err;
         }
@@ -318,6 +348,7 @@ If a tax or discount is not present, use 0. Do not include markdown ticks or exp
       }
     }
 
+    // If all hardcoded models failed with 404, attempt dynamic model discovery
     if (onProgress) onProgress('Checking available receipt readers…');
     try {
       const available = await listAvailableModels(cleanKey);

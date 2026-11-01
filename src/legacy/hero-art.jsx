@@ -1,9 +1,16 @@
+/**
+ * SplitSmart — hero-art.jsx
+ * Static SVG markup for the hero story. Every animated element is drawn around
+ * its own local origin and tagged with data-r="…" so hero-story.jsx can move it
+ * with a single transform per frame. Colours come from CSS classes (hero-story.css).
+ */
 import { rupees, formatCurrency } from './algorithm.jsx';
 import { shortMoney } from './hero-data.jsx';
 
 export const VIEW = { w: 440, h: 520 };
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
+/* Layout constants shared with the timeline */
 export const LAYOUT = {
   friendX: [78, 220, 362],
   friendYDining: [228, 186, 228],
@@ -152,6 +159,7 @@ function bill(story) {
   </g>`;
 }
 
+/** One lime pill per (dish → friend) hand-off, plus three for the proportional tax. */
 export function tokenSpecs(story) {
   const specs = [];
   story.dishes.forEach((d, di) => d.parts.forEach(p => specs.push({ kind: 'dish', di, friendIdx: p.friendIdx, paise: p.paise, label: shortMoney(p.paise) })));

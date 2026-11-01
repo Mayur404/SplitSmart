@@ -1,3 +1,4 @@
+/** SplitSmart — UPI QR, payment note and split-threshold dialogs. */
 import { formatCurrency, netBalances, minimumCashFlow } from '../../algorithm.jsx';
 import { paymentUri, renderQR, splitPayment, isValidUpiId } from '../../qr.jsx';
 import { $, esc, toast } from '../core.jsx';

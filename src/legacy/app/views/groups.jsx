@@ -1,3 +1,4 @@
+/** SplitSmart — Groups manager view. */
 import { templates } from '../../state.jsx';
 import { $, S, esc, icon } from '../core.jsx';
 import { renderHeader } from './chrome.jsx';

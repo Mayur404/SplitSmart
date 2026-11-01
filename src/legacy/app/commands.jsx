@@ -1,3 +1,4 @@
+/** SplitSmart — Natural-language / voice commands and receipt scanning. */
 import { uid } from '../state.jsx';
 import { toPaise } from '../algorithm.jsx';
 import { GEMINI_API_KEY, GEMINI_CONFIGURED } from '../../config/gemini.jsx';
@@ -17,6 +18,7 @@ export function executeNaturalLanguageCommand(text) {
   const items = bill.items || [];
   const groupMembers = members();
 
+  // Pattern 1: Clear all
   if (lower === 'clear all' || lower === 'reset all') {
     items.forEach(i => i.assignments = []);
     toast('Cleared all item assignments.');
@@ -24,7 +26,7 @@ export function executeNaturalLanguageCommand(text) {
     return;
   }
 
-
+  // Pattern 2: Clear item X
   const clearMatch = lower.match(/^clear\s+(?:assignment\s+(?:for\s+)?)?(?:item\s+)?(.+)$/);
   if (clearMatch) {
     const targetStr = clearMatch[1].trim();
@@ -40,6 +42,7 @@ export function executeNaturalLanguageCommand(text) {
     return;
   }
 
+  // Pattern 3: Assign / Put / Split <item> to/on/between <target>
   const assignMatch = lower.match(/^(?:assign|put|split)\s+(.+?)\s+(?:to|on|between)\s+(.+)$/);
   if (!assignMatch) {
     toast('Command not recognized. Example: "Assign naan to everyone" or "Put biryani on Sneha"', true);
@@ -49,6 +52,7 @@ export function executeNaturalLanguageCommand(text) {
   const itemQuery = assignMatch[1].trim();
   const targetQuery = assignMatch[2].trim();
 
+  // Resolve item
   let targetItem = null;
   const itemNum = parseInt(itemQuery.replace(/^item\s+/, ''), 10);
   if (!isNaN(itemNum) && items[itemNum - 1]) {
@@ -135,6 +139,7 @@ export function showAmbiguityDialog(prompt, choices, onSelect) {
   $('#ambiguity-dialog').showModal();
 }
 
+// Receipt Scanning Handler
 export async function handleReceiptScan() {
   const fileInput = $('#receipt-upload');
   const file = fileInput?.files?.[0];
@@ -160,7 +165,8 @@ export async function handleReceiptScan() {
       if (statusBox) statusBox.innerHTML = `<span class="sc-progress-text">${esc(msg)}</span>`;
     };
 
-
+    // Model choice is intentionally internal: the scanner owns automatic
+    // model selection and fallback so users never need to choose a model.
     const receipt = await scanReceipt(file, GEMINI_API_KEY, 'auto', onProgress);
     const b = currentBill();
     if (b) {
@@ -180,7 +186,7 @@ export async function handleReceiptScan() {
        S.scanNotice = { count: receipt.items.length };
        toast('Receipt scanned successfully. Review the extracted items.');
       renderBill();
-      S.scanNotice = null;   
+      S.scanNotice = null;   // shown once, in the freshly rendered scanner
     }
   } catch (err) {
     setScanState('error');
@@ -190,7 +196,8 @@ export async function handleReceiptScan() {
   }
 }
 
-
+// Voice Command Handler (Web Speech API). Keep one instance alive until the
+// browser's end event so rapid clicks cannot create competing recognizers.
 export function handleVoiceCommand() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {

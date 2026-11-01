@@ -1,3 +1,9 @@
+/**
+ * SplitSmart — theme.css (loaded after style.css)
+ * Dual-theme tokens (Ivory + Sage / Charcoal + Olive), lime-glass surfaces,
+ * card motion, cursor halo, biryani loader, and the food-selection wheel bubble.
+ * All colours live in the variables below; components only reference variables.
+ */
 html:root {
   color-scheme: light;
   --paper: #F3F0E7; --surface: #E4E8DC; --surface-alt: #D9DFCE;
@@ -39,6 +45,7 @@ html[data-theme="dark"] {
   --halo-ring: rgba(255,255,255,.8); --halo-glow: 0 0 14px rgba(255,255,255,.28);
 }
 
+/* Page + shell */
 html, html body { background: var(--paper); color: var(--ink); }
 body { background: var(--ambient), var(--paper); background-attachment: fixed; }
 html .app-shell { background: transparent; border-color: var(--line); box-shadow: none; }
@@ -55,6 +62,7 @@ html .nav-link.nav-create { color: var(--accent-strong); border-color: var(--gla
 html .nav-link.nav-create:hover { color: var(--on-lime); background: var(--lime); }
 html .theme-toggle:hover { background: var(--accent-soft); color: var(--ink); }
 
+/* Lime-glass surfaces */
 html .panel, html .metric-card, html .dashboard-hero, html .dashboard-footer, html .story-stage,
 html .preview-window, html .dashboard-preview .preview-window, html .assignment-item {
   background: var(--sheen), var(--glass); color: var(--ink);
@@ -84,6 +92,7 @@ html .button-primary:hover { background: var(--lime-hover); color: var(--on-lime
 html .button-secondary { color: var(--ink); background: var(--glass); border-color: var(--line-strong); }
 html .button-secondary:hover { background: var(--accent-soft); border-color: var(--accent); }
 
+/* Interaction states: hover lift (spring), pressed, selected, drag, drop */
 html .chip { color: var(--ink-secondary); background: var(--sheen), var(--glass); border: 1px solid var(--glass-border); border-radius: 999px; padding-inline: 14px;
   transition: translate 320ms var(--spring), box-shadow 220ms, background 180ms, color 180ms; }
 html .chip:hover { color: var(--on-lime); background: var(--lime); border-color: var(--lime); translate: 0 -2px; }
@@ -99,11 +108,13 @@ html .dialog[open]::backdrop { animation: fade-in 220ms ease-out both; }
 @keyframes dlg-in { from { opacity: 0; transform: translateY(14px) scale(.94); } to { opacity: 1; transform: none; } }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 
+/* Cursor halo (desktop pointers only; created by motion.js) */
 .cursor-halo { position: fixed; z-index: 2000; left: 0; top: 0; width: 36px; height: 36px; border-radius: 50%; pointer-events: none;
   border: 1.5px solid var(--halo-ring); box-shadow: var(--halo-glow); opacity: 0; transition: opacity 200ms, width 220ms var(--spring), height 220ms var(--spring), margin 220ms var(--spring); will-change: transform; }
 .cursor-halo.is-visible { opacity: .55; }
 .cursor-halo.is-hot, .cursor-halo.is-dragging { opacity: .95; width: 46px; height: 46px; margin: -5px 0 0 -5px; }
 
+/* Biryani loader */
 .boot-loader { position: fixed; inset: 0; z-index: 3000; display: grid; place-content: center; justify-items: center; gap: 14px;
   background: var(--ambient), var(--paper); color: var(--ink); transition: opacity 300ms ease, visibility 300ms; animation: boot-failsafe 300ms 6s forwards; }
 .boot-loader.is-done { opacity: 0; visibility: hidden; }
@@ -118,6 +129,8 @@ html .dialog[open]::backdrop { animation: fade-in 220ms ease-out both; }
 @keyframes glow { 50% { opacity: .38; } }
 @keyframes mini-steam { 0% { opacity: 0; transform: translateY(3px); } 40% { opacity: .8; } 100% { opacity: 0; transform: translateY(-5px) scaleY(1.3); } }
 
+/* Glass scroll popup (opened by dragging a person or a dish) — see motion.js for the choreography.
+   Layers: .gp-scrim (soft lime/ivory wash behind) · .gp-glass (the animated lens-like panel) · .gp-body (content). */
 html:root {
   --gp-fill: linear-gradient(152deg, rgba(255,255,255,.62) 0%, rgba(246,250,232,.34) 46%, rgba(255,255,255,.20) 100%);
   --gp-tint: color-mix(in srgb, var(--lime) 14%, transparent);
@@ -145,10 +158,12 @@ html[data-theme="dark"] {
 .food-bubble.is-closing { pointer-events: none; }
 .food-bubble.is-sheet { left: 50% !important; top: auto !important; bottom: 12px; translate: -50% 0; }
 
+/* The lens: frosted, saturated backdrop, bright refracted rim, soft sage tint taken from the site palette. */
 .gp-glass { position: absolute; inset: 0; border-radius: 30px; pointer-events: none; will-change: top, left, right, bottom, border-radius, transform, opacity;
   background: var(--gp-fill), var(--gp-tint);
   -webkit-backdrop-filter: blur(20px) saturate(185%) brightness(1.05); backdrop-filter: blur(20px) saturate(185%) brightness(1.05);
   border: 1px solid var(--gp-border); box-shadow: var(--gp-rim), var(--gp-shadow); }
+/* Specular edge: a thin light catching the top-left and bottom-right of the rim, like the glass in the reference. */
 .gp-glass::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px; pointer-events: none;
   background: linear-gradient(140deg, rgba(255,255,255,.95), rgba(255,255,255,0) 32%, rgba(255,255,255,0) 66%, rgba(255,255,255,.75));
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
@@ -183,7 +198,9 @@ html[data-theme="dark"] .wheel-item { box-shadow: inset 0 1px 0 rgba(255,255,255
 .wheel-item.is-assigned .wi-tick svg { opacity: 1; }
 .wheel-item.is-active { box-shadow: 0 0 0 2px var(--lime), inset 0 1px 0 rgba(255,255,255,.6), 0 8px 18px -8px rgba(60,72,40,.4); }
 .wheel-item.is-target { translate: 0 -3px; scale: 1.025; box-shadow: 0 0 0 2.5px var(--lime), 0 0 22px color-mix(in srgb, var(--lime) 55%, transparent), 0 12px 22px -8px rgba(60,72,40,.45); }
-.bubble-hint { text-align: center; color: var(--muted); font-size: 12px; margin: 8px 0 0; 
+.bubble-hint { text-align: center; color: var(--muted); font-size: 12px; margin: 8px 0 0; }
+
+/* While dragging: lifted source, a small name tag under the pointer, no text selection. */
 body.is-dnd { cursor: grabbing; -webkit-user-select: none; user-select: none; }
 body.is-dnd * { cursor: grabbing !important; }
 .is-dnd-src { opacity: .72; scale: .98; }
@@ -200,6 +217,7 @@ html [data-dnd] { -webkit-touch-callout: none; -webkit-user-select: none; user-s
   * { scroll-behavior: auto !important; }
 }
 
+/* Re-map hard-coded light-blue text/borders from the legacy style.css layer to theme tokens */
 html .breadcrumb, html .theme-toggle { color: var(--ink-secondary); }
 html .theme-toggle { border-color: var(--line-strong); }
 html .eyebrow, html .utility-band .eyebrow { color: var(--accent-strong); }
@@ -212,10 +230,14 @@ html input::placeholder, html textarea::placeholder { color: var(--muted); opaci
 html .pill-non-veg { color: var(--danger); background: var(--danger-soft); border-color: color-mix(in srgb, var(--danger) 35%, transparent); }
 html .groups-page [data-group-card] .button-danger, html .settings-page .button-danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, transparent); background: transparent; }
 html .empty { background: var(--accent-soft); border-color: var(--line-strong); }
+
+/* Compact (fit) lists: no permanent "selected" ring from the wheel cursor — only show it for keyboard use. */
 .wheel.is-fit:not(:focus-visible) .wheel-item.is-active:not(.is-target) { box-shadow: inset 0 1px 0 rgba(255,255,255,.55), 0 4px 10px -6px rgba(60,72,40,.3); }
 html[data-theme="dark"] .wheel.is-fit:not(:focus-visible) .wheel-item.is-active:not(.is-target) { box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 4px 10px -6px rgba(0,0,0,.5); }
 @media (hover: hover) { .wheel.is-fit .wheel-item:hover:not(.is-target) { translate: 0 -2px; box-shadow: 0 0 0 2px color-mix(in srgb, var(--lime) 70%, transparent), 0 10px 18px -8px rgba(60,72,40,.4); } }
 
+/* Accent as TEXT: --accent is a fill colour (too pale on ivory), so text and icons use --accent-strong in both themes.
+   (--accent-strong is the deep olive in light and the bright lime in dark.) */
 html .button-quiet, html .button-text:hover, html .tab.active, html .preview-code, html .preview-status, html .stage-status,
 html .story-number, html .story-caption, html .strip-index, html .demo-check, html .calc-sequence .positive, html .settlement-connector,
 html .privacy-icon, html .settlement-page .settlement-amount, html .success, html .info-link, html .site-footer button:hover,

@@ -1,9 +1,15 @@
+/**
+ * SplitSmart — state.jsx
+ * Minimal Local Persistence, Roster Management, Session State, Backup, and Restore.
+ */
+
 const STORAGE_KEYS = {
   settings: 'splitsmart:v1:settings',
   rosters: 'splitsmart:v1:rosters',
   recent: 'splitsmart:v1:recent'
 };
 
+// In-memory fallback if localStorage is disabled, throws QuotaExceededError, or in private browsing
 const memoryStore = {};
 
 let storageAvailable = true;
@@ -52,6 +58,9 @@ export function remove(key) {
   }
 }
 
+/**
+ * Generate unique local IDs.
+ */
 export function uid(prefix = 'id') {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return `${prefix}-${crypto.randomUUID()}`;
@@ -59,6 +68,9 @@ export function uid(prefix = 'id') {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+/**
+ * Clean and validate member profile.
+ */
 export function sanitizeMember(raw, index = 1) {
   const dietaryTags = ['VEG', 'NON-VEG', 'ANY'];
   const tag = dietaryTags.includes(raw.dietaryTag) ? raw.dietaryTag : 'ANY';
@@ -71,6 +83,13 @@ export function sanitizeMember(raw, index = 1) {
   };
 }
 
+/**
+ * Preset roster templates:
+ * - Roommates (4)
+ * - Friends (6)
+ * - Class Outing (30)
+ * Marked with example: true so users know to edit them before use.
+ */
 export function templates() {
   const makeExample = (name, upi, diet) => ({
     id: uid('person'),
@@ -117,6 +136,9 @@ export function templates() {
   ];
 }
 
+/**
+ * Create a fresh group.
+ */
 export function freshRoster(name = 'New group', count = 0) {
   return {
     id: uid('group'),
@@ -132,9 +154,13 @@ export function freshRoster(name = 'New group', count = 0) {
   };
 }
 
+/**
+ * Retrieve saved groups.
+ */
 export function getRosters() {
   const raw = read('rosters', null);
   if (!Array.isArray(raw)) {
+    // If no rosters stored yet, provide default starter group
     const initial = [freshRoster('Flatmates', 4)];
     saveRosters(initial);
     return initial;
@@ -166,8 +192,13 @@ export function saveRosters(rosters) {
   return write('rosters', clean);
 }
 
+/**
+ * User Settings (theme, selected model, warning threshold).
+ * The Gemini API key is no longer stored here — it comes from VITE_GEMINI_API_KEY (src/config/gemini.jsx).
+ */
 export function getSettings() {
   const s = read('settings', {});
+  // One-time cleanup: drop any API key an older version saved to localStorage.
   if (s && (s.apiKey || s.saveKey)) { delete s.apiKey; delete s.saveKey; write('settings', s); }
   return {
     theme: s?.theme === 'dark' ? 'dark' : 'light',
@@ -185,6 +216,9 @@ export function saveSettings(settings) {
   return write('settings', clean);
 }
 
+/**
+ * Recent Outing / Bill summaries (max 5 sessions).
+ */
 export function getRecent() {
   const raw = read('recent', []);
   if (!Array.isArray(raw)) return [];
@@ -197,6 +231,10 @@ export function saveRecent(recent) {
   return write('recent', recent.slice(0, 5));
 }
 
+/**
+ * Export JSON backup.
+ * Strictly excludes API keys, image data, and temporary cache.
+ */
 export function exportBackup() {
   return {
     version: 1,
@@ -209,6 +247,9 @@ export function exportBackup() {
   };
 }
 
+/**
+ * Validate imported JSON backup.
+ */
 export function validateBackup(data) {
   if (!data || typeof data !== 'object') return false;
   if (data.version !== 1) return false;
@@ -223,6 +264,9 @@ export function validateBackup(data) {
   });
 }
 
+/**
+ * Import JSON backup.
+ */
 export function importBackup(data) {
   if (!validateBackup(data)) {
     throw new Error('This backup file is invalid, corrupted, or from an unsupported version.');

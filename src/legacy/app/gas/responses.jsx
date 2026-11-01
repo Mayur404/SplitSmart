@@ -40,7 +40,7 @@ export function renderGasResponses(rows = [], { updatedAt = null, loading = fals
   header.className = 'gas-responses-header';
   const heading = document.createElement('div');
   const title = document.createElement('h2');
-  title.textContent = `Common Claims (${(rows || []).length})`;
+  title.textContent = `Claims (${(rows || []).length})`;
   heading.append(title);
   const update = document.createElement('button');
   update.type = 'button';
@@ -108,6 +108,13 @@ export function renderGasResponses(rows = [], { updatedAt = null, loading = fals
   newLink.dataset.action = 'get-new-common-claim-link';
   newLink.textContent = 'Get new claim link';
   controls.appendChild(newLink);
+
+  const personalLink = document.createElement('button');
+  personalLink.type = 'button';
+  personalLink.className = 'button button-secondary';
+  personalLink.dataset.action = 'get-personal-claim-link';
+  personalLink.textContent = 'Get personal claim link';
+  controls.appendChild(personalLink);
 
   box.appendChild(controls);
 

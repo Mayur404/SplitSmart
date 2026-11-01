@@ -1,7 +1,7 @@
 /** SplitSmart — Stateless self-claim view (direct link open). */
 import { read as readStore, write as writeStore } from '../../state.jsx';
 import { formatCurrency, calculateShares } from '../../algorithm.jsx';
-import { decodeShare } from '../../share.jsx';
+import { decodeShare, decodePersonalParticipant } from '../../share.jsx';
 import { $$, $, S, esc, icon } from '../core.jsx';
 import { setNav } from '../router.jsx';
 
@@ -13,7 +13,8 @@ export const claimDraftKey = p => {
   const params = new URLSearchParams(window.location.search);
   const formId = params.get('formId') || 'offline';
   const claimRound = params.get('claimRound') || '1';
-  return `splitsmart:v2:claim:${formId}:${claimRound}:${p.sessionId}`;
+  const personalId = params.get('personalParticipantId') || 'common';
+  return `splitsmart:v2:claim:${formId}:${claimRound}:${personalId}:${p.sessionId}`;
 };
 
 /**
@@ -83,7 +84,7 @@ export function claimUnitNote(it) {
 export function renderClaim() {
   try {
     S.decodedClaimPayload = decodeShare(window.location.hash);
-    S.decodedClaimParticipant = null;
+    S.decodedClaimParticipant = decodePersonalParticipant(window.location.hash, S.decodedClaimPayload);
   } catch (err) {
     $('#app').innerHTML = `
       <div class="claim-page"><div class="panel claim-error">
@@ -105,10 +106,14 @@ export function renderClaim() {
     ? p.participantRecords
     : p.participants.map((name, index) => ({ id: `participant-${index + 1}`, name }));
 
-  // Common claim link: each participant chooses their own name from the shared roster.
+  // Personal links decode a participant embedded in the URL; common links use the full roster.
   const draft = readStore(claimDraftKey(p), null);
-  const draftUser = draft && typeof draft.user === 'string' && p.participants.includes(draft.user) ? draft.user : '';
-  const draftParticipantId = draft?.participantId || '';
+  const personalLink = Boolean(S.decodedClaimParticipant);
+  const lockedParticipant = S.decodedClaimParticipant;
+  const draftUser = personalLink
+    ? lockedParticipant.name
+    : (draft && typeof draft.user === 'string' && p.participants.includes(draft.user) ? draft.user : '');
+  const draftParticipantId = personalLink ? lockedParticipant.id : (draft?.participantId || '');
   const validIds = new Set(p.items.map(i => i.id));
   const draftIds = new Set(Array.isArray(draft?.ids) ? draft.ids.filter(id => validIds.has(id)) : []);
 
@@ -117,16 +122,19 @@ export function renderClaim() {
   const totalValue = totals.grand === null ? totals.food : totals.grand;
   const showTax = totals.adj !== null && totals.adj !== 0;
 
-  const peopleHtml = participantRecords.map((person, i) => {
+  const visibleParticipants = personalLink ? [lockedParticipant] : participantRecords;
+  const peopleHtml = visibleParticipants.map((person, i) => {
     const n = person.name;
-    const selected = draftParticipantId ? person.id === draftParticipantId : n === draftUser;
+    const selected = personalLink
+      ? person.id === lockedParticipant.id
+      : (draftParticipantId ? person.id === draftParticipantId : n === draftUser);
     return `
-    <label class="claim-person" style="--i:${Math.min(i, 10)}" data-dnd="person" data-person-id="${esc(person.id)}" data-person-name="${esc(n)}">
-      <input type="radio" name="claimant" value="${esc(n)}" data-participant-id="${esc(person.id)}" data-claimant ${selected ? 'checked' : ''}>
+    <label class="claim-person ${personalLink ? 'is-locked' : ''}" style="--i:${Math.min(i, 10)}" data-dnd="person" data-person-id="${esc(person.id)}" data-person-name="${esc(n)}">
+      <input type="radio" name="claimant" value="${esc(n)}" data-participant-id="${esc(person.id)}" data-claimant ${selected ? 'checked' : ''} ${personalLink ? 'disabled' : ''}>
       <span class="cp-body">
         <span class="cp-avatar" aria-hidden="true">${esc((n.trim()[0] || '?').toUpperCase())}</span>
         <span class="cp-name">${esc(n)}</span>
-        <span class="cp-you" aria-hidden="true">You</span>
+        <span class="cp-you" aria-hidden="true">${personalLink ? 'Personal link' : 'You'}</span>
       </span>
     </label>`;
   }).join('');
@@ -194,7 +202,7 @@ export function renderClaim() {
         <div class="claim-head-main">
           <p class="claim-kicker">Shared bill${p.date ? ` · ${esc(p.date)}` : ''}</p>
           <h1>${esc(p.outing)}</h1>
-          <p class="claim-lead">Pick your name, then tick everything you shared.</p>
+          <p class="claim-lead">${personalLink ? 'Your name is fixed for this personal link. Tick everything you shared.' : 'Pick your name, then tick everything you shared.'}</p>
         </div>
         <dl class="claim-facts">
           <div><dt>${totalLabel}</dt><dd>${formatCurrency(totalValue)}</dd></div>
@@ -210,7 +218,7 @@ export function renderClaim() {
       <div class="claim-layout">
         <div class="claim-main">
           <fieldset class="claim-who" style="--i:1">
-            <legend>Who are you?</legend>
+            <legend>${personalLink ? 'Your name (fixed by the owner)' : 'Who are you?'}</legend>
             <div class="claim-people" role="radiogroup" aria-label="Your name" data-cs="people">${peopleHtml}</div>
           </fieldset>
 

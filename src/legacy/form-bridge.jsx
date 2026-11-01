@@ -130,8 +130,12 @@ export const getOwnerForm = ownerKey => jsonp("getOwnerForm", { ownerKey });
  * Signature intentionally matches app.jsx:
  * gasSubmitResponse(formId, claimRound, answers)
  */
-export const submitResponse = (formId, claimRound, answers) =>
-  jsonp("submitResponse", { formId, claimRound, answers });
+export const submitResponse = (formId, claimRound, answers, customerKey = "") =>
+  jsonp("submitResponse", { formId, claimRound, answers, customerKey });
+
+/** Create/reuse a participant-bound personal claim token. */
+export const createPersonalCustomerLink = (ownerKey, participantId) =>
+  jsonp("createPersonalCustomerLink", { ownerKey, participantId });
 
 /** Retrieve responses for the form associated with this owner key. */
 export const getOwnerResponses = ownerKey =>

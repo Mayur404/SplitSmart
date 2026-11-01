@@ -449,6 +449,67 @@ export function encodeShare(payload) {
 /**
  * Safely decode and validate shared state from URL hash.
  */
+/**
+ * Personal link: append the compressed participant record LAST in the hash.
+ * Format: #data=<compressed bill>&person=<compressed participant JSON>
+ * This is URL encoding/prefill, not authentication or proof of identity.
+ */
+export function encodePersonalShare(payload, participant) {
+  if (!participant?.id || !participant?.name) {
+    throw new Error('A participant ID and name are required for a personal link.');
+  }
+  const roster = Array.isArray(payload.participantRecords) ? payload.participantRecords : [];
+  const exists = roster.some(person => String(person.id) === String(participant.id) && String(person.name) === String(participant.name));
+  if (!exists) throw new Error('The selected participant is not in this bill.');
+  const billCompressed = compressJsonForLink(payload);
+  const personCompressed = compressJsonForLink({
+    version: 1,
+    participantId: String(participant.id),
+    participantName: String(participant.name)
+  });
+  const link = `${shareBaseUrl()}#data=${billCompressed}&person=${personCompressed}`;
+  if (link.length > 7000) {
+    throw new Error('This personal claim link is too long to share. Reduce the bill size.');
+  }
+  return link;
+}
+
+/**
+ * Decode the optional final personal-participant segment and match it to the
+ * roster embedded in the bill. This only fixes the UI selection; it is not
+ * security validation.
+ */
+export function decodePersonalParticipant(hash, payload) {
+  const clean = String(hash || '').replace(/^#/, '');
+  const match = clean.match(/(?:^|&)person=([^&]+)/);
+  if (!match) return null;
+  const raw = match[1];
+  const decompressFn = (typeof window !== 'undefined' && window.LZString?.decompressFromEncodedURIComponent)
+    ? window.LZString.decompressFromEncodedURIComponent
+    : nativeDecompressFromEncodedURIComponent;
+  let decoded = '';
+  for (const candidate of [raw, raw.replace(/ /g, '+')]) {
+    try { decoded = decompressFn(candidate) || ''; } catch {}
+    if (!decoded) { try { decoded = nativeDecompressFromEncodedURIComponent(candidate) || ''; } catch {} }
+    if (decoded) break;
+  }
+  if (!decoded) throw new Error('The personal participant section of this link is corrupted.');
+  let person;
+  try { person = JSON.parse(decoded); }
+  catch { throw new Error('The personal participant section is invalid.'); }
+  if (person.version !== 1 || !person.participantId || !person.participantName) {
+    throw new Error('The personal participant information is incomplete.');
+  }
+  const roster = Array.isArray(payload?.participantRecords) ? payload.participantRecords : [];
+  const matchPerson = roster.find(entry => String(entry.id) === String(person.participantId) && String(entry.name) === String(person.participantName));
+  if (!matchPerson) throw new Error('This personal link does not match the participant in the encoded bill.');
+  return { id: matchPerson.id, name: matchPerson.name };
+}
+
+/**
+ * Safely decode and validate shared state from URL hash.
+ */
+
 export function decodeShare(hash) {
   try {
     let clean = (hash || '').trim();

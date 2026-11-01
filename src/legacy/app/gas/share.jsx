@@ -2,7 +2,7 @@
 import { uid, write as writeStore } from '../../state.jsx';
 import { formatCurrency } from '../../algorithm.jsx';
 import { makeSharePayload, encodeShare, claimMessage, parseClaim, whatsappUrl } from '../../share.jsx';
-import { createForm as gasCreateForm, submitResponse as gasSubmitResponse, resetClaims as gasResetClaims } from '../../form-bridge.jsx';
+import { createForm as gasCreateForm, createPersonalCustomerLink as gasCreatePersonalCustomerLink, submitResponse as gasSubmitResponse, resetClaims as gasResetClaims } from '../../form-bridge.jsx';
 import { FORM_BRIDGE_OWNER_KEY, FORM_BRIDGE_OWNER_KEYS_KEY, FORM_BRIDGE_FORM_ID_KEY } from '../../../config/formBridge.jsx';
 import { $, S, currentBill, esc, members, toast } from '../core.jsx';
 import { renderGasResponses, applyGasClaimsToAssignments } from './responses.jsx';
@@ -120,6 +120,31 @@ export async function shareClaimUrl() {
 }
 
 /**
+ * Create a participant-bound personal claim URL. Each participant receives a
+ * unique Apps Script customer token, while the bill/form/round remain shared.
+ */
+export async function createPersonalClaimLink(bill, participant, meta = readGasBillMeta(bill)) {
+  if (!bill?.items?.length) throw new Error('Add items before creating personal claim links.');
+  if (!participant?.id || !participant?.name) throw new Error('Choose a valid participant.');
+  if (!meta?.ownerKey || !meta?.formId) throw new Error('The claim form is not registered yet.');
+
+  const token = await gasCreatePersonalCustomerLink(meta.ownerKey, participant.id);
+  if (!token?.customerKey) throw new Error(`Apps Script did not return a personal claim token for ${participant.name}.`);
+  const payload = makeSharePayload(bill, members(), bill.items);
+  const link = new URL(addFormIdToClaimUrl(encodeShare(payload), meta.formId, meta.claimRound));
+  link.searchParams.set('customerKey', token.customerKey);
+  link.searchParams.set('personalParticipantId', participant.id);
+  link.searchParams.set('personalParticipantName', participant.name);
+  return link.toString();
+}
+
+/** Open the all-participants personal-link dialog from legacy entry points. */
+export async function getPersonalClaimLink() {
+  const { openShareClaimsModal } = await import('./modal.jsx');
+  openShareClaimsModal();
+}
+
+/**
  * Start a fresh common-claim round. Existing submissions for this bill are
  * cleared in Sheets, the round number advances, and a new common link is copied.
  */
@@ -137,7 +162,7 @@ export async function getNewCommonClaimLink() {
   }
 
   const confirmed = window.confirm(
-    'Create a new common claim link? Previous customer claims for this bill will be cleared, and participants must submit again.'
+    'Create a new common claim round? Previous common and personal claims for this bill will be cleared, and participants must submit again.'
   );
   if (!confirmed) return;
 
@@ -183,7 +208,7 @@ export async function getNewCommonClaimLink() {
     }
 
     if (S.view === 'assign') {
-      renderAssign();
+      go('assign');
       renderGasResponses([], { updatedAt: syncedAt });
     }
   } catch (error) {
@@ -250,13 +275,13 @@ export async function generateWhatsAppClaim() {
       await gasSubmitResponse(formId, Number(query.get('claimRound')) || 1, {
         'Customer name': claimant,
         'Participant ID': participantId,
-        'Link type': 'common',
+        'Link type': (query.get('customerKey') || S.decodedClaimParticipant) ? 'personal' : 'common',
         'Contact details': contact,
         'Claimed items': selectedItems.map(item => item.name).join(', '),
         'Claimed item details': JSON.stringify(selectedItems),
         'Estimated amount': formatCurrency(estimate),
         'Additional note': note
-      });
+      }, query.get('customerKey') || '');
       savedToSheets = true;
       toast('Claim saved to the owner’s Google Sheet.');
     } catch (error) {

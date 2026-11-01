@@ -163,6 +163,51 @@ function createCommonCustomerLink(ownerKey) {
     return customer;
   } finally { lock.releaseLock(); }
 }
+/**
+ * Create or reuse a personal customer token for one participant on this bill.
+ * The token is stored in Customers and binds future submissions to that participant.
+ */
+function createPersonalCustomerLink(ownerKey, participantId) {
+  ownerKey = clean_(ownerKey, 200);
+  participantId = clean_(participantId, 160);
+  const form = getOwnerForm(ownerKey);
+  if (!form) throw new Error("Owner key not found.");
+  if (!participantId) throw new Error("Participant ID is required.");
+
+  const participant = (form.participants || []).find(function(p) {
+    return p.id === participantId;
+  });
+  if (!participant) throw new Error("Participant is not part of this bill.");
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    let customer = findCustomerLink_(form.formId, "personal", participantId);
+    if (!customer) {
+      customer = {
+        customerKey: id_("CUSTOMER"),
+        formId: form.formId,
+        linkType: "personal",
+        participantId: participant.id,
+        participantName: participant.name
+      };
+      setValuesByHeader_(sheet_("Customers"), {
+        customerKey: customer.customerKey,
+        formId: customer.formId,
+        createdAt: new Date(),
+        linkType: "personal",
+        participantId: participant.id,
+        participantName: participant.name
+      });
+    }
+    customer.url = customerUrl_(customer);
+    customer.reused = true;
+    return customer;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 // Compatibility for older frontend builds: old links are common links.
 function createCustomerLink(ownerKey) { return createCommonCustomerLink(ownerKey); }
 
@@ -216,8 +261,9 @@ function submitResponse(formId, customerKey, claimRound, answers) {
     throw new Error("The bill owner has closed customer submissions. Contact the owner if you need to submit a claim.");
   }
 
-  // Only validate a customer token when an older frontend actually sends one.
-  // Common claim links are validated against the bill roster.
+  // Personal links must carry a valid participant-bound customer token.
+  // Common links remain usable without a token and identify the participant
+  // from the bill roster selection on the claim page.
   let customer = null;
   if (customerKey) {
     customer = getCustomerByKey_(customerKey);
@@ -241,19 +287,26 @@ function submitResponse(formId, customerKey, claimRound, answers) {
   if (!participant) {
     throw new Error("This participant is not part of this bill's roster. Open the latest common claim link or ask the owner to update the bill.");
   }
+  if (customer && customer.linkType === "personal" &&
+      (customer.participantId !== participant.id || customer.participantName !== participant.name)) {
+    throw new Error("This personal claim link belongs to a different participant.");
+  }
+  if (customer && customer.linkType === "common") {
+    throw new Error("Use the common claim link to submit a shared-roster claim.");
+  }
 
-
+  const linkType = customer && customer.linkType === "personal" ? "personal" : "common";
   const safeAnswers = {};
   (form.fields || []).forEach(function(field) {
     safeAnswers[field] = clean_(answers[field], APP.MAX_ANSWER_LENGTH);
   });
+  safeAnswers["Link type"] = linkType;
   // Always store the validated roster identity, not the raw client values.
   safeAnswers["Customer name"] = participant.name;
   safeAnswers["Participant ID"] = participant.id;
 
   const responseId = id_("RESP");
-  const customerId = id_("CLAIMANT");
-  const linkType = "common";
+  const customerId = customerKey || ("PARTICIPANT_" + participant.id);
 
   setValuesByHeader_(sheet_("Responses"), {
     responseId: responseId,
@@ -353,6 +406,7 @@ function apiJsonp_(e) {
       case "getOwnerForm": result = getOwnerForm(p.ownerKey); break;
       case "createCustomerLink":
       case "createCommonCustomerLink": result = createCommonCustomerLink(p.ownerKey); break;
+      case "createPersonalCustomerLink": result = createPersonalCustomerLink(p.ownerKey, p.participantId); break;
       case "getPublicForm": result = getPublicForm(p.formId, p.customerKey); break;
       case "submitResponse": result = submitResponse(p.formId, p.customerKey, p.claimRound, JSON.parse(p.answers || "{}")); break;
       case "resetClaims": result = resetClaims(p.ownerKey, p.formId, p.claimRound); break;

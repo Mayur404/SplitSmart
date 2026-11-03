@@ -1,5 +1,5 @@
 /** SplitSmart — Per-person breakdown and payer recording view. */
-import { toPaise, formatCurrency, calculateShares } from '../../algorithm.jsx';
+import { toPaise, formatCurrency, calculateShares, getCombinedTaxRate } from '../../algorithm.jsx';
 import { $$, $, S, currentBill, esc, icon, members, toast } from '../core.jsx';
 import { go } from '../router.jsx';
 import { renderHeader, renderWorkflow } from './chrome.jsx';
@@ -9,25 +9,68 @@ export function computeBillShares() {
   if (!bill) return null;
 
   const groupMembers = members();
-  const tax = {
-    cgst: toPaise(bill.tax.cgst),
-    sgst: toPaise(bill.tax.sgst),
-    serviceCharge: toPaise(bill.tax.serviceCharge)
-  };
+  const cgstPaise = toPaise(bill.tax?.cgst);
+  const sgstPaise = toPaise(bill.tax?.sgst);
+  const gstPaise = toPaise(bill.tax?.gst);
+  const scPaise = toPaise(bill.tax?.serviceCharge);
   const discountPaise = toPaise(bill.discount);
+  const fixedFeePaise = toPaise(bill.fixedFee);
   const items = bill.items || [];
 
-  const shares = calculateShares(items, groupMembers, tax, discountPaise);
+  const rates = getCombinedTaxRate({
+    ...(bill.tax || {}),
+    ...(bill.taxRates || {})
+  });
+
   const foodTotal = items.reduce((a, b) => a + b.totalPaise, 0);
-  const totalTax = tax.cgst + tax.sgst + tax.serviceCharge;
-  const grandTotal = Math.max(0, foodTotal + totalTax - discountPaise);
+
+  let gstRate = rates.gstRate;
+  let cgstRate = rates.cgstRate;
+  let sgstRate = rates.sgstRate;
+  let scRate = rates.serviceChargeRate;
+
+  if (rates.combinedRate === 0 && foodTotal > 0) {
+    if (cgstPaise > 0 || sgstPaise > 0) {
+      cgstRate = Math.round((cgstPaise / foodTotal) * 1000) / 10;
+      sgstRate = Math.round((sgstPaise / foodTotal) * 1000) / 10;
+      gstRate = cgstRate + sgstRate;
+    } else if (gstPaise > 0) {
+      gstRate = Math.round((gstPaise / foodTotal) * 1000) / 10;
+    }
+    if (scPaise > 0) {
+      scRate = Math.round((scPaise / foodTotal) * 1000) / 10;
+    }
+  }
+
+  const combinedRate = gstRate + scRate;
+  const effectiveRates = {
+    gstRate,
+    cgstRate,
+    sgstRate,
+    serviceChargeRate: scRate,
+    combinedRate
+  };
+
+  const tax = {
+    cgst: cgstPaise,
+    sgst: sgstPaise,
+    gst: gstPaise,
+    serviceCharge: scPaise,
+    fixedFee: fixedFeePaise,
+    fixedFeePaise: fixedFeePaise,
+    ...effectiveRates
+  };
+
+  const shares = calculateShares(items, groupMembers, tax, discountPaise, { taxRates: effectiveRates });
+  const additionalChargesPaise = Math.round((foodTotal * combinedRate) / 100);
+  const grandTotal = Math.max(0, foodTotal + additionalChargesPaise + fixedFeePaise - discountPaise);
 
   return {
     bill,
     items,
     members: groupMembers,
     foodTotal,
-    taxTotal: totalTax,
+    taxTotal: additionalChargesPaise + fixedFeePaise,
     discountTotal: discountPaise,
     grandTotal,
     shares

@@ -6,6 +6,7 @@ import { renderAssign } from './views/assign.jsx';
 import { updateBillTotalsLive } from './views/bill.jsx';
 import { applyPayerAmounts, updateLivePayerSummary } from './views/breakdown.jsx';
 import { renderGroups } from './views/groups.jsx';
+import { executeNaturalLanguageCommand } from './commands.jsx';
 
 // Change events: scan model, default payer, backup import, member search
 document.addEventListener('change', e => {
@@ -70,7 +71,7 @@ document.addEventListener('input', e => {
     updateBillTotalsLive();
   }
 
-  if (['tax-cgst', 'tax-sgst', 'tax-sc', 'bill-discount', 'stated-total'].includes(e.target.id)) {
+  if (['tax-gst', 'tax-cgst', 'tax-sgst', 'tax-sc', 'rate-gst', 'rate-cgst', 'rate-sgst', 'rate-sc', 'bill-discount', 'bill-fixed-fee', 'stated-total', 'tax-basis-select'].includes(e.target.id)) {
     updateBillTotalsLive();
   }
 
@@ -84,10 +85,26 @@ document.addEventListener('input', e => {
   }
 });
 
-// Pressing Enter in payer amount input triggers calculation update
+// Pressing Enter in command input or payer amount input
 document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.id === 'command-input') {
+    e.preventDefault();
+    const val = e.target.value;
+    if (val && val.trim()) {
+      executeNaturalLanguageCommand(val);
+      e.target.value = '';
+    }
+  }
+
   if (e.key === 'Enter' && e.target.matches('.payer-amount-input')) {
     e.preventDefault();
     applyPayerAmounts(true);
   }
 });
+
+// Synchronize model availability collapsed/expanded state
+document.addEventListener('toggle', e => {
+  if (e.target && e.target.id === 'sc-models-box' && typeof window !== 'undefined') {
+    window.__scModelsOpen = e.target.open;
+  }
+}, true);

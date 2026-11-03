@@ -130,21 +130,26 @@ export const getOwnerForm = ownerKey => jsonp("getOwnerForm", { ownerKey });
  * Signature intentionally matches app.jsx:
  * gasSubmitResponse(formId, claimRound, answers)
  */
-export const submitResponse = (formId, claimRound, answers, customerKey = "") =>
-  jsonp("submitResponse", { formId, claimRound, answers, customerKey });
-
-/** Create/reuse a participant-bound personal claim token. */
-export const createPersonalCustomerLink = (ownerKey, participantId) =>
-  jsonp("createPersonalCustomerLink", { ownerKey, participantId });
+export const submitResponse = (formId, claimRound, answers) =>
+  jsonp("submitResponse", { formId, claimRound, answers });
 
 /** Retrieve responses for the form associated with this owner key. */
 export const getOwnerResponses = ownerKey =>
   jsonp("getOwnerResponses", { ownerKey });
 
+/**
+ * Delete this bill's old-round responses and advance its claim round.
+ * Signature intentionally matches app.jsx:
+ * gasResetClaims(ownerKey, formId, expectedRound)
+ */
+export const resetClaims = (ownerKey, formId, expectedRound) =>
+  jsonp("resetClaims", {
+    ownerKey,
+    formId,
+    claimRound: expectedRound
+  });
+
+
 /** Open or close customer submissions for one bill. */
 export const setClaimsOpen = (ownerKey, formId, acceptingClaims) =>
   jsonp("setClaimsOpen", { ownerKey, formId, acceptingClaims });
-
-/** Clear the previous common-claim round and open a fresh round. */
-export const resetClaims = (ownerKey, formId, claimRound) =>
-  jsonp("resetClaims", { ownerKey, formId, claimRound });

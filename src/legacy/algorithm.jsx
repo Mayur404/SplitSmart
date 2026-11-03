@@ -152,21 +152,136 @@ export function undoUnrollItem(items, originalItem) {
 }
 
 /**
+ * Calculate combined percentage-based additional charges (GST + Service Charge) on a given food subtotal.
+ *
+ * Deterministic calculation rule:
+ * combinedRate = gstRate + serviceChargeRate;
+ * additionalCharge = Math.round(foodSubtotalPaise * combinedRate / 100);
+ * finalShare = foodSubtotalPaise + additionalCharge;
+ *
+ * For split GST: gstRate = cgstRate + sgstRate.
+ * For combined GST: gstRate = combinedGstRate.
+ * Never compound taxes. Never add combined GST alongside CGST and SGST.
+ */
+export function getCombinedTaxRate(taxRates = {}) {
+  const cgstRate = Math.max(0, Number(taxRates?.cgstRate ?? 0) || 0);
+  const sgstRate = Math.max(0, Number(taxRates?.sgstRate ?? 0) || 0);
+  let gstRate = Math.max(0, Number(taxRates?.gstRate ?? taxRates?.combinedGstRate ?? 0) || 0);
+  const serviceChargeRate = Math.max(0, Number(taxRates?.serviceChargeRate ?? taxRates?.scRate ?? 0) || 0);
+
+  // If split GST is provided, its sum represents the GST rate
+  if (cgstRate > 0 || sgstRate > 0) {
+    gstRate = cgstRate + sgstRate;
+  }
+
+  const combinedRate = gstRate + serviceChargeRate;
+  return {
+    cgstRate,
+    sgstRate,
+    gstRate,
+    serviceChargeRate,
+    combinedRate
+  };
+}
+
+export function calculateItemTaxCharges(subtotalPaise, taxConfig = {}) {
+  const subtotal = Math.max(0, Math.trunc(Number(subtotalPaise) || 0));
+  if (subtotal === 0) {
+    return {
+      subtotalPaise: 0,
+      scPaise: 0,
+      cgstPaise: 0,
+      sgstPaise: 0,
+      gstPaise: 0,
+      totalChargesPaise: 0,
+      finalAmountPaise: 0,
+      scRate: 0,
+      serviceChargeRate: 0,
+      cgstRate: 0,
+      sgstRate: 0,
+      gstRate: 0,
+      combinedRate: 0
+    };
+  }
+
+  const rates = getCombinedTaxRate(taxConfig);
+  let scRate = rates.serviceChargeRate;
+  let cgstRate = rates.cgstRate;
+  let sgstRate = rates.sgstRate;
+  let gstRate = rates.gstRate;
+  let combinedRate = rates.combinedRate;
+
+  // Backward compatibility: derive rates if only legacy paise amounts were supplied
+  const totalFoodRef = Math.max(0, Math.trunc(Number(taxConfig.totalFoodPaise) || 0));
+  if (combinedRate === 0 && totalFoodRef > 0) {
+    if (scRate === 0 && Number(taxConfig.scPaise) > 0) {
+      scRate = (Number(taxConfig.scPaise) / totalFoodRef) * 100;
+    }
+    if (cgstRate === 0 && Number(taxConfig.cgstPaise) > 0) {
+      cgstRate = (Number(taxConfig.cgstPaise) / totalFoodRef) * 100;
+    }
+    if (sgstRate === 0 && Number(taxConfig.sgstPaise) > 0) {
+      sgstRate = (Number(taxConfig.sgstPaise) / totalFoodRef) * 100;
+    }
+    if (gstRate === 0 && Number(taxConfig.gstPaise) > 0) {
+      gstRate = (Number(taxConfig.gstPaise) / totalFoodRef) * 100;
+    }
+    if (cgstRate > 0 || sgstRate > 0) {
+      gstRate = cgstRate + sgstRate;
+    }
+    combinedRate = gstRate + scRate;
+  }
+
+  // Pure deterministic percentage calculation directly on food subtotal (NEVER compounded!)
+  const scPaise = Math.round((subtotal * scRate) / 100);
+  let cgstPaise = 0;
+  let sgstPaise = 0;
+  let gstPaise = 0;
+
+  if (cgstRate > 0 || sgstRate > 0) {
+    cgstPaise = Math.round((subtotal * cgstRate) / 100);
+    sgstPaise = Math.round((subtotal * sgstRate) / 100);
+    gstPaise = cgstPaise + sgstPaise;
+  } else if (gstRate > 0) {
+    gstPaise = Math.round((subtotal * gstRate) / 100);
+    cgstPaise = Math.round(gstPaise / 2);
+    sgstPaise = gstPaise - cgstPaise;
+  }
+
+  const totalChargesPaise = scPaise + gstPaise;
+  const finalAmountPaise = subtotal + totalChargesPaise;
+
+  return {
+    subtotalPaise: subtotal,
+    scPaise,
+    cgstPaise,
+    sgstPaise,
+    gstPaise,
+    totalChargesPaise,
+    finalAmountPaise,
+    scRate,
+    serviceChargeRate: scRate,
+    cgstRate,
+    sgstRate,
+    gstRate,
+    combinedRate
+  };
+}
+
+/**
  * Proportional Tax and Discount Allocation.
  *
  * For each participant:
- * Final Share = Food Subtotal + Proportional Net Adjustment
- * Where:
- * Proportional Net Adjustment = (Participant Food Subtotal / Total Food Subtotal) * (Total Tax - Discount)
+ * Final Share = Food Subtotal + (Food Subtotal * combinedRate / 100) + Proportional Fixed Adjustment
  *
- * Invariant: Sum of participant shares === Grand Total in paise.
+ * Invariant: Sum of participant shares === Total Bill in paise.
  */
-export function calculateShares(items, members, tax = { cgst: 0, sgst: 0, serviceCharge: 0 }, discount = 0) {
+export function calculateShares(items, members, tax = { cgst: 0, sgst: 0, serviceCharge: 0 }, discount = 0, options = {}) {
   const memberCount = members.length;
   const foodPaise = new Array(memberCount).fill(0);
   const memberIndexMap = new Map(members.map((m, idx) => [m.id, idx]));
 
-  // 1. Allocate each item's totalPaise equally among its assigned members
+  // 1. Allocate each item's totalPaise equally among assigned members
   for (const item of items) {
     const assignedIds = [...new Set(item.assignments || [])].filter(id => memberIndexMap.has(id));
     if (assignedIds.length > 0) {
@@ -181,30 +296,60 @@ export function calculateShares(items, members, tax = { cgst: 0, sgst: 0, servic
 
   const totalFoodPaise = foodPaise.reduce((a, b) => a + b, 0);
 
-  // 2. Compute net adjustment: (CGST + SGST + ServiceCharge) - Discount
-  const cgstPaise = Math.max(0, Math.trunc(Number(tax.cgst) || 0));
-  const sgstPaise = Math.max(0, Math.trunc(Number(tax.sgst) || 0));
-  const scPaise = Math.max(0, Math.trunc(Number(tax.serviceCharge) || 0));
-  const discountPaise = Math.max(0, Math.trunc(Number(discount) || 0));
+  // 2. Check for percentage rates:
+  const taxObj = { ...(tax || {}), ...(options.taxRates || {}) };
+  const rates = getCombinedTaxRate(taxObj);
+  const combinedRate = rates.combinedRate;
 
-  const totalTaxPaise = cgstPaise + sgstPaise + scPaise;
-  const netAdjustmentPaise = totalTaxPaise - discountPaise;
+  // Fixed adjustments:
+  const fixedDiscountPaise = Math.max(0, Math.trunc(Number(discount ?? tax.discountPaise ?? tax.fixedDiscountPaise) || 0));
+  const fixedScPaise = Math.max(0, Math.trunc(Number(tax.fixedServiceChargePaise ?? tax.fixedServiceCharge) || 0));
+  const fixedTaxPaise = Math.max(0, Math.trunc(Number(tax.fixedTaxPaise ?? tax.fixedTax) || 0));
 
-  // 3. Proportional distribution of net adjustment by food subtotals
-  // If total food is 0, split adjustment equally across all members
-  const adjustmentWeights = totalFoodPaise > 0 ? foodPaise : members.map(() => 1);
-  const adjustments = allocateLargestRemainder(netAdjustmentPaise, adjustmentWeights);
+  // Legacy fallback: if combinedRate is 0, check if legacy cgst/sgst/serviceCharge were passed as fixed amounts
+  if (combinedRate === 0) {
+    const legacySc = Math.max(0, Math.trunc(Number(tax.serviceCharge ?? tax.scPaise) || 0));
+    const legacyCgst = Math.max(0, Math.trunc(Number(tax.cgst ?? tax.cgstPaise) || 0));
+    const legacySgst = Math.max(0, Math.trunc(Number(tax.sgst ?? tax.sgstPaise) || 0));
+    const legacyGst = Math.max(0, Math.trunc(Number(tax.gst ?? tax.gstPaise) || 0));
+    const effectiveLegacyGst = (legacyCgst > 0 || legacySgst > 0) ? (legacyCgst + legacySgst) : legacyGst;
+    const legacyNetAdjustment = (effectiveLegacyGst + legacySc) - fixedDiscountPaise;
 
-  // 4. Construct final shares
+    const adjustmentWeights = totalFoodPaise > 0 ? foodPaise : members.map(() => 1);
+    const adjustments = allocateLargestRemainder(legacyNetAdjustment, adjustmentWeights);
+
+    return members.map((m, i) => {
+      const fPaise = foodPaise[i];
+      const adjPaise = adjustments[i] || 0;
+      return {
+        memberId: m.id,
+        name: m.name,
+        foodPaise: fPaise,
+        taxDiscountPaise: adjPaise,
+        sharePaise: Math.max(0, fPaise + adjPaise)
+      };
+    });
+  }
+
+  // Pure deterministic percentage calculation using combinedRate
+  const fixedNetAdjustmentPaise = (fixedTaxPaise + fixedScPaise) - fixedDiscountPaise;
+  const fixedAdjustmentWeights = totalFoodPaise > 0 ? foodPaise : members.map(() => 1);
+  const fixedAdjustments = fixedNetAdjustmentPaise !== 0
+    ? allocateLargestRemainder(fixedNetAdjustmentPaise, fixedAdjustmentWeights)
+    : members.map(() => 0);
+
   return members.map((m, i) => {
     const fPaise = foodPaise[i];
-    const adjPaise = adjustments[i] || 0;
-    const sharePaise = Math.max(0, fPaise + adjPaise);
+    const chargeInfo = calculateItemTaxCharges(fPaise, rates);
+    const fixedAdj = fixedAdjustments[i] || 0;
+    const totalAdditionalPaise = chargeInfo.totalChargesPaise + fixedAdj;
+    const sharePaise = Math.max(0, fPaise + totalAdditionalPaise);
+
     return {
       memberId: m.id,
       name: m.name,
       foodPaise: fPaise,
-      taxDiscountPaise: adjPaise,
+      taxDiscountPaise: totalAdditionalPaise,
       sharePaise
     };
   });

@@ -2,6 +2,8 @@
 import { getOwnerResponses as gasGetOwnerResponses } from '../../form-bridge.jsx';
 import { unrollItem } from '../../algorithm.jsx';
 import { S, currentBill, members, toast } from '../core.jsx';
+import { startFreshClaimRound } from './modal.jsx';
+import { shareClaimUrl } from './share.jsx';
 import { gasResponseCache, gasResponseUpdatedAt, readGasBillMeta, readSavedClaimLinks, saveGasResponsesSnapshot } from './storage.jsx';
 import { saveCurrentOutingToRecent } from '../outing.jsx';
 import { renderAssign } from '../views/assign.jsx';
@@ -40,7 +42,7 @@ export function renderGasResponses(rows = [], { updatedAt = null, loading = fals
   header.className = 'gas-responses-header';
   const heading = document.createElement('div');
   const title = document.createElement('h2');
-  title.textContent = `Claims (${(rows || []).length})`;
+  title.textContent = `Customer Claims (${(rows || []).length})`;
   heading.append(title);
   const update = document.createElement('button');
   update.type = 'button';
@@ -68,14 +70,14 @@ export function renderGasResponses(rows = [], { updatedAt = null, loading = fals
 
     const meta = readGasBillMeta(bill);
     if (!meta?.formId) {
-      toast('No saved claim link exists yet. Use Share claim link to create it.', true);
+      toast('No saved claim link exists yet. Click Customer Claims once to create it.', true);
       return;
     }
 
     const saved = readSavedClaimLinks(meta.formId);
     const link = saved?.commonLink;
     if (!link) {
-      toast('No saved common claim link was found for this bill. Use Share claim link to create and save it.', true);
+      toast('No saved common claim link was found for this bill. Click Customer Claims once to create and save it.', true);
       return;
     }
 
@@ -104,17 +106,25 @@ export function renderGasResponses(rows = [], { updatedAt = null, loading = fals
 
   const newLink = document.createElement('button');
   newLink.type = 'button';
-  newLink.className = 'button button-primary';
-  newLink.dataset.action = 'get-new-common-claim-link';
+  newLink.className = 'button button-forest';
   newLink.textContent = 'Get new claim link';
+  newLink.addEventListener('click', async () => {
+    if (!window.confirm('Start a fresh claim round? Existing claims for this bill will be deleted from Google Sheets and old links will stop working.')) return;
+    newLink.disabled = true;
+    try {
+      await startFreshClaimRound();
+      await shareClaimUrl();
+    } catch (error) {
+      toast(`Could not create a fresh claim round: ${error.message}`, true);
+    } finally { newLink.disabled = false; }
+  });
   controls.appendChild(newLink);
-
-  const personalLink = document.createElement('button');
-  personalLink.type = 'button';
-  personalLink.className = 'button button-secondary';
-  personalLink.dataset.action = 'get-personal-claim-link';
-  personalLink.textContent = 'Get personal claim link';
-  controls.appendChild(personalLink);
+  const shareClaims = document.createElement('button');
+  shareClaims.type = 'button';
+  shareClaims.className = 'button button-primary gas-share-button';
+  shareClaims.dataset.action = 'open-personal-claims';
+  shareClaims.textContent = 'Personal Claims';
+  controls.appendChild(shareClaims);
 
   box.appendChild(controls);
 

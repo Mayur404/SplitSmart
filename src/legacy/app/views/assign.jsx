@@ -153,7 +153,6 @@ export function renderAssign() {
     <div class="button-row">
       <button class="button button-primary" data-action="go-to-breakdown">Review shares ${icon('arrowRight')}</button>
        <button class="button button-secondary" data-action="open-customer-claims">Customer Claims</button>
-      <button class="button button-secondary" data-action="get-personal-claim-link">Get Personal Claim Link</button>
     </div>
     </div>
   `;

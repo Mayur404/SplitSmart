@@ -1,19 +1,18 @@
 /** SplitSmart — Click action handlers: claims. */
 import { $, currentBill, toast } from '../core.jsx';
+import { openShareClaimsModal } from '../gas/modal.jsx';
 import { refreshGasResponses, renderGasResponses } from '../gas/responses.jsx';
-import { generateWhatsAppClaim, getNewCommonClaimLink, promptImportClaim, shareClaimUrl } from '../gas/share.jsx';
+import { generateWhatsAppClaim, promptImportClaim, shareClaimUrl } from '../gas/share.jsx';
 import { gasResponseCache, gasResponseUpdatedAt, readGasBillMeta, readSavedGasResponses } from '../gas/storage.jsx';
 import { expandedClaimItems } from '../views/claim.jsx';
-import { openShareClaimsModal } from '../gas/modal.jsx';
 
 export const ACTIONS = [
   'claim-toggle-units',
   'close-share-dialog',
   'share-claim-link',
+  'open-personal-claims',
   'open-customer-claims',
   'refresh-gas-responses',
-  'get-new-common-claim-link',
-  'get-personal-claim-link',
   'import-claim-modal',
   'submit-whatsapp-claim'
 ];
@@ -44,6 +43,10 @@ export async function handle(action, actionBtn) {
       break;
     }
 
+    case 'open-personal-claims': {
+      openShareClaimsModal();
+      break;
+    }
 
     case 'open-customer-claims': {
       const bill = currentBill();
@@ -65,16 +68,6 @@ export async function handle(action, actionBtn) {
       const shareDialog = $('#share-dialog');
       if (shareDialog?.open) shareDialog.close();
       refreshGasResponses();
-      break;
-    }
-
-    case 'get-new-common-claim-link': {
-      getNewCommonClaimLink();
-      break;
-    }
-
-    case 'get-personal-claim-link': {
-      openShareClaimsModal();
       break;
     }
 

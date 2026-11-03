@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <style>
+    :root { color-scheme: light; --ink:#172033; --muted:#65718a; --line:#e1e7f0; --brand:#3659d9; --soft:#f4f7fc; --good:#147a4b; --bad:#b42318; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:linear-gradient(140deg,#f5f7ff,#f8fbff 45%,#eef7f5); color:var(--ink); font:15px/1.5 Arial,sans-serif; }
+    .shell { max-width:980px; margin:0 auto; padding:28px 18px 56px; }
+    header { display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:24px; }
+    .brand { font-size:22px; font-weight:800; letter-spacing:-.5px; }
+    .brand span { color:var(--brand); }
+    .pill { border:1px solid var(--line); background:#fff; border-radius:999px; padding:7px 12px; color:var(--muted); font-size:12px; }
+    .hero { margin-bottom:22px; }
+    h1 { font-size:clamp(28px,5vw,42px); line-height:1.1; letter-spacing:-1.2px; margin:0 0 10px; }
+    h2 { font-size:19px; margin:0 0 14px; }
+    p { color:var(--muted); margin:0 0 12px; }
+    .grid { display:grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap:18px; }
+    .card { background:#fff; border:1px solid var(--line); border-radius:18px; padding:22px; box-shadow:0 8px 28px #243b6410; min-width:0; }
+    .wide { grid-column:1/-1; }
+    label { display:block; font-size:13px; font-weight:700; margin:13px 0 6px; }
+    input, textarea { width:100%; border:1px solid #cfd7e5; border-radius:10px; padding:11px 12px; font:inherit; background:#fff; color:var(--ink); }
+    textarea { min-height:90px; resize:vertical; }
+    button { border:0; border-radius:10px; padding:11px 15px; font-weight:700; cursor:pointer; font:inherit; }
+    .primary { color:white; background:var(--brand); }
+    .secondary { background:#edf1ff; color:#2946b8; }
+    .ghost { background:#f1f4f8; color:var(--ink); }
+    button:disabled { opacity:.6; cursor:wait; }
+    .actions { display:flex; flex-wrap:wrap; gap:9px; margin-top:16px; }
+    .hint { font-size:12px; color:var(--muted); margin-top:8px; }
+    .status { margin:14px 0 0; padding:10px 12px; border-radius:10px; background:var(--soft); color:var(--muted); overflow-wrap:anywhere; }
+    .status.error { background:#fff0ef; color:var(--bad); }
+    .status.success { background:#eaf8f0; color:var(--good); }
+    .hidden { display:none !important; }
+    .linkbox { display:flex; gap:8px; align-items:center; margin-top:10px; }
+    .linkbox input { min-width:0; }
+    .response { border:1px solid var(--line); border-radius:12px; padding:14px; margin-top:12px; }
+    .response-head { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; color:var(--muted); font-size:12px; margin-bottom:8px; }
+    .answer { padding:8px 0; border-top:1px solid #edf0f5; }
+    .answer strong { display:block; font-size:12px; color:var(--muted); margin-bottom:2px; }
+    .field { margin:16px 0; }
+    .field label { margin-top:0; }
+    .footer { text-align:center; color:var(--muted); font-size:12px; margin-top:24px; }
+    @media(max-width:720px) { .grid { grid-template-columns:1fr; } .wide { grid-column:auto; } header { align-items:flex-start; } .card { padding:18px; } .linkbox { flex-direction:column; align-items:stretch; } }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div class="brand">Form<span>Bridge</span></div>
+      <div class="pill">Google Apps Script + Sheets demo</div>
+    </header>
+    <main id="ownerPage" class="<?= page === 'owner' ? '' : 'hidden' ?>">
+      <section class="hero">
+        <h1>Create a form.<br>Collect responses.</h1>
+        <p>Owners create a form and share a customer link. Responses are stored in a Google Sheet and appear when the owner refreshes.</p>
+      </section>
+      <div class="grid">
+        <section class="card" id="createCard">
+          <h2>Create a form</h2>
+          <label for="formTitle">Form title</label>
+          <input id="formTitle" maxlength="120" placeholder="e.g. Contact request">
+          <label for="formDescription">Description (optional)</label>
+          <textarea id="formDescription" maxlength="500" placeholder="Tell customers what this form is for"></textarea>
+          <label for="formFields">Fields — one per line</label>
+          <textarea id="formFields" placeholder="Full name&#10;Email&#10;Message">Full name
+Email
+Message</textarea>
+          <div class="hint">Up to 20 fields. Field labels are used as response keys.</div>
+          <div class="actions"><button class="primary" id="createBtn" onclick="createForm()">Create form</button></div>
+          <div id="createStatus" class="status hidden" role="status"></div>
+        </section>
+        <section class="card" id="ownerCard">
+          <h2>Owner dashboard</h2>
+          <p id="ownerIntro">Create a form to generate your private owner key. Your key is saved in this browser.</p>
+          <div id="ownerDetails" class="hidden">
+            <label>Form title</label><div id="ownerTitle"></div>
+            <label>Owner key (keep private)</label><input id="ownerKeyDisplay" readonly>
+            <div class="actions">
+              <button class="secondary" onclick="makeCustomerLink()">Create customer link</button>
+              <button class="primary" onclick="refreshResponses()">Update responses</button>
+            </div>
+            <div id="linkArea" class="hidden">
+              <label>Share this customer link</label>
+              <div class="linkbox"><input id="customerUrl" readonly><button class="secondary" onclick="copyLink()">Copy link</button></div>
+              <div class="hint">Anyone with this link can submit a response. Share it only with intended recipients.</div>
+            </div>
+          </div>
+          <div id="ownerStatus" class="status hidden" role="status"></div>
+        </section>
+        <section class="card wide">
+          <h2>Responses</h2>
+          <p id="responseIntro">Click “Update responses” after a customer submits the form.</p>
+          <div id="responses"></div>
+        </section>
+      </div>
+    </main>
+
+    <main id="customerPage" class="<?= page === 'customer' ? '' : 'hidden' ?>">
+      <section class="hero">
+        <h1 id="customerTitle">Loading form…</h1>
+        <p id="customerDescription">Please wait while we load the form.</p>
+      </section>
+      <section class="card">
+        <form id="customerForm" onsubmit="sendResponse(event)">
+          <div id="customerFields"></div>
+          <div class="actions"><button id="submitBtn" class="primary" type="submit">Submit response</button></div>
+        </form>
+        <div id="customerStatus" class="status hidden" role="status"></div>
+      </section>
+    </main>
+    <div class="footer">Demo app • Do not submit sensitive personal or financial information.</div>
+  </div>
+
+  <script>
+    const PAGE = <?= JSON.stringify(page) ?>;
+    const FORM_ID = <?= JSON.stringify(formId) ?>;
+    const CUSTOMER_KEY = <?= JSON.stringify(customerKey) ?>;
+    const OWNER_KEY_STORAGE = "formbridge_owner_key";
+
+    function status(id, message, kind) {
+      const el = document.getElementById(id);
+      el.textContent = message || "";
+      el.className = "status" + (message ? "" : " hidden") + (kind ? " " + kind : "");
+    }
+    function callServer(method, args, onSuccess, statusId) {
+      google.script.run
+        .withSuccessHandler(onSuccess)
+        .withFailureHandler(function(err) {
+          status(statusId, (err && err.message) ? err.message : "Something went wrong.", "error");
+        })[method].apply(null, args || []);
+    }
+    function showOwnerForm(form, ownerKey) {
+      document.getElementById("ownerIntro").classList.add("hidden");
+      document.getElementById("ownerDetails").classList.remove("hidden");
+      document.getElementById("ownerTitle").textContent = form.title;
+      document.getElementById("ownerKeyDisplay").value = ownerKey;
+    }
+    function createForm() {
+      const title = document.getElementById("formTitle").value.trim();
+      const description = document.getElementById("formDescription").value.trim();
+      const fields = document.getElementById("formFields").value.split("\n").map(s => s.trim()).filter(Boolean);
+      if (!title || fields.length === 0) {
+        status("createStatus", "Enter a title and at least one field.", "error");
+        return;
+      }
+      const btn = document.getElementById("createBtn");
+      btn.disabled = true;
+      status("createStatus", "Creating form…");
+      callServer("createForm", [{title, description, fields}], function(result) {
+        btn.disabled = false;
+        localStorage.setItem(OWNER_KEY_STORAGE, result.ownerKey);
+        showOwnerForm(result, result.ownerKey);
+        status("createStatus", "Form created successfully.", "success");
+        status("ownerStatus", "Your form is ready. Create a customer link to share it.", "success");
+      }, "createStatus");
+    }
+    function loadOwner() {
+      const key = localStorage.getItem(OWNER_KEY_STORAGE);
+      if (!key) return;
+      callServer("getOwnerForm", [key], function(form) {
+        if (!form) {
+          localStorage.removeItem(OWNER_KEY_STORAGE);
+          return;
+        }
+        showOwnerForm(form, key);
+      }, "ownerStatus");
+    }
+    function makeCustomerLink() {
+      const key = localStorage.getItem(OWNER_KEY_STORAGE);
+      if (!key) return status("ownerStatus", "Create a form first.", "error");
+      status("ownerStatus", "Creating customer link…");
+      callServer("createCustomerLink", [key], function(result) {
+        document.getElementById("linkArea").classList.remove("hidden");
+        document.getElementById("customerUrl").value = result.url;
+        status("ownerStatus", "Customer link created.", "success");
+      }, "ownerStatus");
+    }
+    async function copyLink() {
+      const input = document.getElementById("customerUrl");
+      try {
+        await navigator.clipboard.writeText(input.value);
+        status("ownerStatus", "Link copied.", "success");
+      } catch (e) {
+        input.select();
+        document.execCommand("copy");
+        status("ownerStatus", "Link copied (if your browser allowed clipboard access).", "success");
+      }
+    }
+    function refreshResponses() {
+      const key = localStorage.getItem(OWNER_KEY_STORAGE);
+      if (!key) return status("ownerStatus", "Create a form first.", "error");
+      status("ownerStatus", "Loading responses…");
+      callServer("getOwnerResponses", [key], function(rows) {
+        renderResponses(rows || []);
+        status("ownerStatus", "Updated. " + rows.length + " response(s) found.", "success");
+      }, "ownerStatus");
+    }
+    function renderResponses(rows) {
+      const root = document.getElementById("responses");
+      root.replaceChildren();
+      document.getElementById("responseIntro").textContent =
+        rows.length ? rows.length + " response(s) received." : "No responses yet. Share a customer link to collect responses.";
+      if (!rows.length) return;
+      rows.forEach(function(row) {
+        const card = document.createElement("div");
+        card.className = "response";
+        const head = document.createElement("div");
+        head.className = "response-head";
+        const id = document.createElement("span");
+        id.textContent = "Response " + row.responseId;
+        const date = document.createElement("span");
+        date.textContent = new Date(row.submittedAt).toLocaleString();
+        head.append(id, date);
+        card.appendChild(head);
+        Object.keys(row.answers || {}).forEach(function(key) {
+          const answer = document.createElement("div");
+          answer.className = "answer";
+          const label = document.createElement("strong");
+          label.textContent = key;
+          const value = document.createElement("div");
+          value.textContent = row.answers[key] || "—";
+          answer.append(label, value);
+          card.appendChild(answer);
+        });
+        root.appendChild(card);
+      });
+    }
+    function loadCustomerForm() {
+      if (!FORM_ID || !CUSTOMER_KEY) {
+        document.getElementById("customerTitle").textContent = "Invalid form link";
+        document.getElementById("customerDescription").textContent = "The form link is missing required information.";
+        document.getElementById("customerForm").classList.add("hidden");
+        return;
+      }
+      callServer("getPublicForm", [FORM_ID, CUSTOMER_KEY], function(form) {
+        document.getElementById("customerTitle").textContent = form.title;
+        document.getElementById("customerDescription").textContent = form.description || "Please complete the fields below.";
+        const root = document.getElementById("customerFields");
+        root.replaceChildren();
+        form.fields.forEach(function(field, index) {
+          const wrap = document.createElement("div");
+          wrap.className = "field";
+          const label = document.createElement("label");
+          label.htmlFor = "field_" + index;
+          label.textContent = field;
+          const input = document.createElement("textarea");
+          input.id = "field_" + index;
+          input.name = field;
+          input.maxLength = 5000;
+          input.required = true;
+          input.rows = field.toLowerCase().includes("message") || field.toLowerCase().includes("description") ? 4 : 2;
+          wrap.append(label, input);
+          root.appendChild(wrap);
+        });
+      }, "customerStatus");
+    }
+    function sendResponse(event) {
+      event.preventDefault();
+      const btn = document.getElementById("submitBtn");
+      const answers = {};
+      document.querySelectorAll("#customerFields textarea").forEach(function(el) {
+        answers[el.name] = el.value.trim();
+      });
+      btn.disabled = true;
+      status("customerStatus", "Submitting…");
+      callServer("submitResponse", [FORM_ID, CUSTOMER_KEY, answers], function(result) {
+        btn.disabled = false;
+        document.getElementById("customerForm").reset();
+        status("customerStatus", "Submitted successfully. You can close this page.", "success");
+      }, "customerStatus");
+    }
+
+    if (PAGE === "owner") loadOwner();
+    if (PAGE === "customer") loadCustomerForm();
+  </script>
+</body>
+</html>

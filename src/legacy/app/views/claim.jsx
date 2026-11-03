@@ -1,6 +1,6 @@
 /** SplitSmart — Stateless self-claim view (direct link open). */
 import { read as readStore, write as writeStore } from '../../state.jsx';
-import { formatCurrency, calculateShares } from '../../algorithm.jsx';
+import { formatCurrency, calculateShares, calculateItemTaxCharges, getCombinedTaxRate } from '../../algorithm.jsx';
 import { decodeShare, decodePersonalParticipant } from '../../share.jsx';
 import { $$, $, S, esc, icon } from '../core.jsx';
 import { setNav } from '../router.jsx';
@@ -13,21 +13,27 @@ export const claimDraftKey = p => {
   const params = new URLSearchParams(window.location.search);
   const formId = params.get('formId') || 'offline';
   const claimRound = params.get('claimRound') || '1';
-  const personalId = params.get('personalParticipantId') || 'common';
-  return `splitsmart:v2:claim:${formId}:${claimRound}:${personalId}:${p.sessionId}`;
+  return `splitsmart:v2:claim:${formId}:${claimRound}:${p.sessionId}`;
 };
 
 /**
  * Totals for one claimant, using the same engine the host uses (calculateShares).
- * The claimant is modelled as one member and "everyone else" as a second, so tax and discount
- * are allocated in proportion to food exactly as the host's review step does.
- * Items shared with other people are split by the host once every claim is in; this is an estimate.
+ * The claimant is modelled as one member ('me') and "everyone else" as a second ('rest'),
+ * so tax and discount are allocated in proportion to food expenditure exactly as the
+ * host's review step does.
+ *
+ * For every bill item, its total is divided into two portions:
+ * - Selected portion: assigned to 'me'
+ * - Unselected portion: assigned to 'rest'
+ * Preserving the original total food value across both participants.
  */
 export function claimTotals(p, selectedIds) {
   const food = p.items.reduce((a, it) => a + it.costPaise, 0);
-  const adj = Number.isInteger(p.adjPaise) ? p.adjPaise : null;
 
-  const selectedItems = p.items.map(it => {
+  const shareItems = [];
+  let subtotal = 0;
+
+  p.items.forEach(it => {
     const qty = Math.max(1, Math.trunc(Number(it.quantity) || 1));
     const selectedQty = Array.from({ length: qty }, (_, i) =>
       selectedIds.has(`${it.id}::unit:${i + 1}`)
@@ -37,31 +43,109 @@ export function claimTotals(p, selectedIds) {
     const wholeSelected = selectedIds.has(it.id);
     const actualQty = wholeSelected ? qty : selectedQty;
 
-    return {
-      id: it.id,
-      totalPaise: Math.round(it.costPaise * actualQty / qty),
-      assignments: [actualQty > 0 ? 'me' : 'rest']
-    };
+    const mePaise = Math.round((it.costPaise * actualQty) / qty);
+    const restPaise = it.costPaise - mePaise;
+
+    subtotal += mePaise;
+
+    if (mePaise > 0) {
+      shareItems.push({
+        id: `${it.id}::me`,
+        totalPaise: mePaise,
+        assignments: ['me']
+      });
+    }
+    if (restPaise > 0) {
+      shareItems.push({
+        id: `${it.id}::rest`,
+        totalPaise: restPaise,
+        assignments: ['rest']
+      });
+    }
   });
 
-  const subtotal = selectedItems.reduce(
-    (sum, it) => sum + (it.assignments[0] === 'me' ? it.totalPaise : 0),
-    0
-  );
+  const restFood = Math.max(0, food - subtotal);
 
+  // 1. STRUCTURED-TAX CLAIM LINKS:
+  // taxConfig or taxRates are the strict SOURCE OF TRUTH.
+  // We do NOT collapse to p.adjPaise.
+  if (p.taxConfig || p.taxRates) {
+    const config = { ...(p.taxConfig || {}), ...(p.taxRates || {}), totalFoodPaise: food };
+    const rates = getCombinedTaxRate(config);
+    const combinedRate = rates.combinedRate;
+
+    const billCharges = calculateItemTaxCharges(food, rates);
+    const billDiscount = Math.max(0, Math.trunc(Number(config.discountPaise) || 0));
+    const billFixedFee = Math.max(0, Math.trunc(Number(config.fixedFeePaise) || 0));
+    const totalBillNetAdjustment = billCharges.totalChargesPaise + billFixedFee - billDiscount;
+    const grand = Math.max(0, food + totalBillNetAdjustment);
+
+    if (subtotal === 0) {
+      return {
+        food,
+        adj: totalBillNetAdjustment,
+        subtotal: 0,
+        taxShare: 0,
+        estimate: 0,
+        grand,
+        rates,
+        chargesBreakdown: calculateItemTaxCharges(0, rates),
+        rest: {
+          foodPaise: food,
+          taxDiscountPaise: totalBillNetAdjustment,
+          sharePaise: grand
+        }
+      };
+    }
+
+    const meCharges = calculateItemTaxCharges(subtotal, rates);
+    const meFixedNet = food > 0 ? Math.round(((billFixedFee - billDiscount) * subtotal) / food) : 0;
+    const meTaxShare = meCharges.totalChargesPaise + meFixedNet;
+
+    // Exact reconciliation with rest to prevent paise rounding drift
+    const restTaxShare = totalBillNetAdjustment - meTaxShare;
+    const restShare = restFood + restTaxShare;
+    const estimate = subtotal + meTaxShare;
+
+    return {
+      food,
+      adj: totalBillNetAdjustment,
+      subtotal,
+      taxShare: meTaxShare,
+      estimate,
+      grand,
+      rates,
+      chargesBreakdown: meCharges,
+      rest: {
+        foodPaise: restFood,
+        taxDiscountPaise: restTaxShare,
+        sharePaise: restShare
+      }
+    };
+  }
+
+  // 2. BACKWARD COMPATIBILITY FALLBACK:
+  // Older links without taxConfig use the legacy flattened adjPaise
+  const adj = Number.isInteger(p.adjPaise) ? p.adjPaise : null;
   const out = {
     food,
     adj,
     subtotal,
     taxShare: 0,
     estimate: subtotal,
-    grand: adj === null ? null : Math.max(0, food + adj)
+    grand: adj === null ? null : Math.max(0, food + adj),
+    chargesBreakdown: null,
+    rest: {
+      foodPaise: restFood,
+      taxDiscountPaise: adj !== null ? adj : 0,
+      sharePaise: adj === null ? restFood : Math.max(0, food + adj - subtotal)
+    }
   };
 
   if (adj === null || subtotal === 0) return out;
 
-  const [me] = calculateShares(
-    selectedItems,
+  const [me, rest] = calculateShares(
+    shareItems,
     [{ id: 'me', name: 'me' }, { id: 'rest', name: 'rest' }],
     { cgst: Math.max(0, adj) },
     Math.max(0, -adj)
@@ -70,6 +154,13 @@ export function claimTotals(p, selectedIds) {
   out.subtotal = me.foodPaise;
   out.taxShare = me.taxDiscountPaise;
   out.estimate = me.sharePaise;
+  if (rest) {
+    out.rest = {
+      foodPaise: rest.foodPaise,
+      taxDiscountPaise: rest.taxDiscountPaise,
+      sharePaise: rest.sharePaise
+    };
+  }
 
   return out;
 }
@@ -102,14 +193,14 @@ export function renderClaim() {
   setNav();
 
   const p = S.decodedClaimPayload;
+  const personalLink = Boolean(S.decodedClaimParticipant);
+  const lockedParticipant = S.decodedClaimParticipant;
   const participantRecords = Array.isArray(p.participantRecords) && p.participantRecords.length
     ? p.participantRecords
     : p.participants.map((name, index) => ({ id: `participant-${index + 1}`, name }));
 
-  // Personal links decode a participant embedded in the URL; common links use the full roster.
+  // Restore this person's draft on this device. Personal links always select their encoded participant.
   const draft = readStore(claimDraftKey(p), null);
-  const personalLink = Boolean(S.decodedClaimParticipant);
-  const lockedParticipant = S.decodedClaimParticipant;
   const draftUser = personalLink
     ? lockedParticipant.name
     : (draft && typeof draft.user === 'string' && p.participants.includes(draft.user) ? draft.user : '');
@@ -122,7 +213,17 @@ export function renderClaim() {
   const totalValue = totals.grand === null ? totals.food : totals.grand;
   const showTax = totals.adj !== null && totals.adj !== 0;
 
-  const visibleParticipants = personalLink ? [lockedParticipant] : participantRecords;
+  let taxLabel = 'Tax & discount';
+  if (totals.rates && totals.rates.combinedRate > 0) {
+    const parts = [];
+    if (totals.rates.gstRate > 0) parts.push(`GST ${totals.rates.gstRate}%`);
+    if (totals.rates.serviceChargeRate > 0) parts.push(`Service Charge ${totals.rates.serviceChargeRate}%`);
+    taxLabel = `Taxes & charges (${totals.rates.combinedRate}%${parts.length ? ` — ${parts.join(' + ')}` : ''})`;
+  }
+
+  const visibleParticipants = personalLink
+    ? [lockedParticipant]
+    : participantRecords;
   const peopleHtml = visibleParticipants.map((person, i) => {
     const n = person.name;
     const selected = personalLink
@@ -236,7 +337,7 @@ export function renderClaim() {
           <div class="cs-lines">
             <div class="cs-line"><span>Selected</span><strong data-cs="count">0 items</strong></div>
             <div class="cs-line"><span>Items</span><strong data-cs="subtotal" data-paise="0">${formatCurrency(0)}</strong></div>
-            ${showTax ? `<div class="cs-line"><span>Tax &amp; discount</span><strong data-cs="tax" data-signed="1" data-paise="0">${formatCurrency(0)}</strong></div>` : ''}
+            ${showTax ? `<div class="cs-line"><span>${esc(taxLabel)}</span><strong data-cs="tax" data-signed="1" data-paise="0">${formatCurrency(0)}</strong></div>` : ''}
           </div>
           <div class="cs-total"><span>Estimated amount</span><strong data-cs="estimate" data-paise="0">${formatCurrency(0)}</strong></div>
           <button type="button" class="button button-primary cs-submit" data-action="submit-whatsapp-claim" data-cs="submit" disabled>Prepare WhatsApp claim</button>

@@ -9,6 +9,9 @@ export const ACTIONS = [
   'add-item-row',
   'remove-item',
   'sync-calculated-total',
+  'add-fixed-difference',
+  'set-tax-basis',
+  'toggle-gst-mode',
   'go-to-assign',
   'back-to-bill',
   'scan-receipt',
@@ -46,6 +49,73 @@ export async function handle(action, actionBtn) {
         b.statedTotal = null;
         renderBill();
         toast('Synchronized to calculated total.');
+      }
+      break;
+    }
+
+    case 'add-fixed-difference': {
+      const b = currentBill();
+      if (b) {
+        const diff = Number(actionBtn.dataset.diff) || 0;
+        b.fixedFee = Math.round(((Number(b.fixedFee) || 0) + diff) * 100) / 100;
+        b.statedTotal = null;
+        renderBill();
+        toast(`Added ₹${diff.toFixed(2)} as fixed adjustment.`);
+      }
+      break;
+    }
+
+    case 'set-tax-basis': {
+      syncBillFromDom();
+      const b = currentBill();
+      if (b) {
+        b.taxBasis = actionBtn.dataset.basis || 'independent';
+        b.taxBasisConfirmed = true;
+        renderBill();
+        toast(`Tax basis set to ${b.taxBasis === 'receipt' ? 'Receipt Basis' : 'Independent'}.`);
+      }
+      break;
+    }
+
+    case 'toggle-gst-mode': {
+      syncBillFromDom();
+      const b = currentBill();
+      if (b) {
+        const rates = b.taxRates || {
+          gstRate: b.tax?.gstRate,
+          cgstRate: b.tax?.cgstRate,
+          sgstRate: b.tax?.sgstRate,
+          serviceChargeRate: b.tax?.serviceChargeRate
+        };
+        const currentlyCombined = b.tax.isCombined || (Number(rates.gstRate) > 0 && !Number(rates.cgstRate) && !Number(rates.sgstRate));
+        if (currentlyCombined) {
+          // Switch to separate CGST & SGST
+          const totalGstRate = Number(rates.gstRate || b.tax.gstRate || 0);
+          b.tax.isCombined = false;
+          b.taxRates = {
+            ...rates,
+            cgstRate: Math.round((totalGstRate / 2) * 100) / 100,
+            sgstRate: Math.round((totalGstRate / 2) * 100) / 100,
+            gstRate: totalGstRate
+          };
+          b.tax.cgstRate = b.taxRates.cgstRate;
+          b.tax.sgstRate = b.taxRates.sgstRate;
+          b.tax.gstRate = totalGstRate;
+        } else {
+          // Switch to combined GST
+          const splitSumRate = (Number(rates.cgstRate || b.tax.cgstRate) || 0) + (Number(rates.sgstRate || b.tax.sgstRate) || 0);
+          b.tax.isCombined = true;
+          b.taxRates = {
+            ...rates,
+            gstRate: Math.round(splitSumRate * 100) / 100,
+            cgstRate: 0,
+            sgstRate: 0
+          };
+          b.tax.gstRate = b.taxRates.gstRate;
+          b.tax.cgstRate = 0;
+          b.tax.sgstRate = 0;
+        }
+        renderBill();
       }
       break;
     }

@@ -14,7 +14,9 @@
 
 const $ = (s, r = document) => r.querySelector(s);
 const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
-const valueDescriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+const valueDescriptor = typeof HTMLSelectElement !== 'undefined'
+  ? Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')
+  : null;
 const CHEVRON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
 const TICK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.2 4.2L19 7"/></svg>';
 
@@ -67,11 +69,13 @@ function enhance(select) {
   }
 
   // Keep the display in sync when app code assigns select.value programmatically.
-  Object.defineProperty(select, 'value', {
-    configurable: true,
-    get() { return valueDescriptor.get.call(this); },
-    set(v) { valueDescriptor.set.call(this, v); paint(); }
-  });
+  if (valueDescriptor) {
+    Object.defineProperty(select, 'value', {
+      configurable: true,
+      get() { return valueDescriptor.get.call(this); },
+      set(v) { valueDescriptor.set.call(this, v); paint(); }
+    });
+  }
   select.addEventListener('change', paint);
   select.addEventListener('focus', () => btn.focus());        // label clicks land on the visible control
   select.form?.addEventListener('reset', () => setTimeout(paint));
@@ -274,8 +278,14 @@ document.addEventListener('change', e => {
 });
 document.addEventListener('click', e => {
   const b = e.target.closest?.('[data-sc]'); if (!b) return;
-  if (b.dataset.sc === 'remove') clearInput();
-  if (b.dataset.sc === 'replace') $('#receipt-upload')?.click();
+  if (b.dataset.sc === 'remove') {
+    clearInput();
+    document.dispatchEvent(new CustomEvent('splitsmart:cancel-scan'));
+  }
+  if (b.dataset.sc === 'replace') {
+    document.dispatchEvent(new CustomEvent('splitsmart:cancel-scan'));
+    $('#receipt-upload')?.click();
+  }
 });
 ['dragenter', 'dragover'].forEach(t => document.addEventListener(t, e => {
   const z = e.target.closest?.('#sc-drop'); if (!z) return;

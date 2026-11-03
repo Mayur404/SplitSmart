@@ -6,7 +6,7 @@
  * so sharing works 100% offline even if CDN libraries are blocked by corporate firewalls.
  */
 
-import { toPaise } from './algorithm.jsx';
+import { toPaise, getCombinedTaxRate } from './algorithm.jsx';
 
 // Native LZ-String implementation for 100% offline / CDN-blocked fallback
 const keyStrUriSafe = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-$';
@@ -385,18 +385,83 @@ function nativeDecompressFromEncodedURIComponent(input) {
  * It excludes API keys, image data, and other private credentials.
  */
 export function makeSharePayload(session, members, items) {
-  // Optional, additive fields so a claimant can see their tax/discount share. Older links simply lack them.
-  // adjPaise = (CGST + SGST + service charge) - discount, computed with the same toPaise() the host's totals use.
+  // Optional, additive fields so a claimant can see their tax/discount share.
   const tax = session.tax || {};
-  const adjPaise = toPaise(tax.cgst) + toPaise(tax.sgst) + toPaise(tax.serviceCharge) - toPaise(session.discount);
+  const rates = getCombinedTaxRate({
+    ...tax,
+    ...(session.taxRates || {})
+  });
+
+  const totalFoodPaise = items.reduce((acc, it) => acc + Math.trunc(Number(it.totalPaise) || 0), 0);
+  const discountPaise = toPaise(session.discount);
+  const fixedFeePaise = toPaise(session.fixedFee);
+
+  let gstRate = rates.gstRate;
+  let cgstRate = rates.cgstRate;
+  let sgstRate = rates.sgstRate;
+  let scRate = rates.serviceChargeRate;
+
+  if (rates.combinedRate === 0 && totalFoodPaise > 0) {
+    const cgstPaise = toPaise(tax.cgst);
+    const sgstPaise = toPaise(tax.sgst);
+    const gstPaise = toPaise(tax.gst);
+    const scPaise = toPaise(tax.serviceCharge);
+    if (cgstPaise > 0 || sgstPaise > 0) {
+      cgstRate = Math.round((cgstPaise / totalFoodPaise) * 1000) / 10;
+      sgstRate = Math.round((sgstPaise / totalFoodPaise) * 1000) / 10;
+      gstRate = cgstRate + sgstRate;
+    } else if (gstPaise > 0) {
+      gstRate = Math.round((gstPaise / totalFoodPaise) * 1000) / 10;
+    }
+    if (scPaise > 0) {
+      scRate = Math.round((scPaise / totalFoodPaise) * 1000) / 10;
+    }
+  }
+
+  const combinedRate = gstRate + scRate;
+  const effectiveRates = {
+    gstRate,
+    cgstRate,
+    sgstRate,
+    serviceChargeRate: scRate,
+    combinedRate
+  };
+
+  const additionalChargesPaise = Math.round((totalFoodPaise * combinedRate) / 100);
+  // adjPaise is preserved for backward compatibility with older claim link readers
+  const adjPaise = additionalChargesPaise + fixedFeePaise - discountPaise;
+  const taxBasis = session.taxBasis || 'independent';
+
+  // taxConfig and taxRates are the strict SOURCE OF TRUTH for newly generated links
+  const taxConfig = {
+    ...effectiveRates,
+    scRate,
+    cgstRate,
+    sgstRate,
+    gstRate,
+    combinedRate,
+    totalFoodPaise,
+    discountPaise,
+    fixedFeePaise,
+    additionalChargesPaise,
+    // Preserve legacy paise fields for backward compatibility
+    scPaise: Math.round((totalFoodPaise * scRate) / 100),
+    cgstPaise: Math.round((totalFoodPaise * cgstRate) / 100),
+    sgstPaise: Math.round((totalFoodPaise * sgstRate) / 100),
+    gstPaise: Math.round((totalFoodPaise * gstRate) / 100)
+  };
+
   return {
     adjPaise,
-    version: 1,
+    taxConfig,
+    taxRates: effectiveRates,
+    taxBasis,
+    version: 2,
     sessionId: String(session.id || 'outing'),
     outing: String(session.restaurantName || 'Shared Outing').slice(0, 80),
     date: String(session.date || '').slice(0, 10),
     // Keep the legacy names array for existing claim UI, and add stable IDs
-    // so common claim links can identify participants consistently.
+    // so personal links can lock a participant without relying on display names.
     participants: members.map(m => String(m.name).trim().slice(0, 60)),
     participantRecords: members.map((m, index) => ({
       id: String(m.id || `participant-${index + 1}`),
@@ -446,9 +511,6 @@ export function encodeShare(payload) {
   return `${shareBaseUrl()}#data=${compressed}`;
 }
 
-/**
- * Safely decode and validate shared state from URL hash.
- */
 /**
  * Personal link: append the compressed participant record LAST in the hash.
  * Format: #data=<compressed bill>&person=<compressed participant JSON>
@@ -509,7 +571,6 @@ export function decodePersonalParticipant(hash, payload) {
 /**
  * Safely decode and validate shared state from URL hash.
  */
-
 export function decodeShare(hash) {
   try {
     let clean = (hash || '').trim();

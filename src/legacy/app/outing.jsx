@@ -21,7 +21,8 @@ export function initOuting(group) {
         items: [
           { id: uid('item'), name: '', quantity: 1, unitPaise: 0, totalPaise: 0, category: 'ANY', assignments: [] }
         ],
-        tax: { cgst: 0, sgst: 0, serviceCharge: 0 },
+        tax: { cgst: 0, sgst: 0, gst: 0, serviceCharge: 0 },
+        taxBasis: 'independent',
         discount: 0,
         statedTotal: null,
         payers: []

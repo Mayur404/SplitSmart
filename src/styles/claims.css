@@ -184,8 +184,8 @@ html[data-theme="dark"] {
 }
 
 /* The app frame clips with overflow:hidden / auto, which makes it the sticky scrollport even though it never scrolls
-   (so position:sticky never engaged). On the Claims page only, clip instead: same look, but sticky works against the viewport. */
-html .app-shell:has(.claim-page), html .main:has(.claim-page) { overflow: clip; }
+   (so position:sticky never engaged). Clip globally across all pages so sticky works against the viewport. */
+html .app-shell, html .main { overflow: clip; }
 
 
 /* ---------- Assign step: people on top, dishes below (same look as the Claims page) ---------- */

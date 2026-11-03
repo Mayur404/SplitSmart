@@ -20,6 +20,7 @@ export const S = {
   // True only when the Assign view is entered from navigation, so toggling a chip never replays the entrance.
   assignAnimate: false,
   decodedClaimPayload: null,
+  decodedClaimParticipant: null,
   gasRefreshInFlight: false
 };
 S.activeGroup = S.rosters[0] || null;
@@ -52,7 +53,8 @@ const ICON_PATHS = {
   receipt: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z"/><path d="M9 8h6M9 12h6M9 16h3"/>',
   link: '<path d="M10 13.5a4 4 0 0 0 5.7.2l2-2a4 4 0 0 0-5.7-5.7l-1.1 1.1"/><path d="M14 10.5a4 4 0 0 0-5.7-.2l-2 2A4 4 0 0 0 8 18l1.1-1.1"/>',
   play: '<path d="m9 6 10 6-10 6V6Z"/>',
-  close: '<path d="m6 6 12 12M18 6 6 18"/>'
+  close: '<path d="m6 6 12 12M18 6 6 18"/>',
+  square: '<rect x="6" y="6" width="12" height="12" rx="2"/>'
 };
 
 export const icon = (name, className = '') => {

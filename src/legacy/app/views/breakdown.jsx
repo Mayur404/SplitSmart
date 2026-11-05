@@ -1,5 +1,5 @@
 /** SplitSmart — Per-person breakdown and payer recording view. */
-import { toPaise, formatCurrency, calculateShares, getCombinedTaxRate } from '../../algorithm.jsx';
+import { toPaise, formatCurrency, calculateShares, getCombinedTaxRate, calculateItemTaxCharges } from '../../algorithm.jsx';
 import { $$, $, S, currentBill, esc, icon, members, toast } from '../core.jsx';
 import { go } from '../router.jsx';
 import { renderHeader, renderWorkflow } from './chrome.jsx';
@@ -61,8 +61,9 @@ export function computeBillShares() {
     ...effectiveRates
   };
 
+  const percentageChargeInfo = calculateItemTaxCharges(foodTotal, effectiveRates);
+  const additionalChargesPaise = percentageChargeInfo.totalChargesPaise;
   const shares = calculateShares(items, groupMembers, tax, discountPaise, { taxRates: effectiveRates });
-  const additionalChargesPaise = Math.round((foodTotal * combinedRate) / 100);
   const grandTotal = Math.max(0, foodTotal + additionalChargesPaise + fixedFeePaise - discountPaise);
 
   return {

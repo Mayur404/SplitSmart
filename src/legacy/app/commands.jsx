@@ -543,6 +543,10 @@ export async function handleReceiptScan() {
       b.taxBasisConfirmed = receipt.taxBasisConfirmed;
       b.taxBasisReason = receipt.taxBasisReason;
       b.discount = receipt.discount || 0;
+      // A newly scanned receipt replaces the previous bill's manual adjustments.
+      // Do not carry a delivery/extra fee or payer amounts over from the old bill.
+      b.fixedFee = 0;
+      b.payers = [];
       b.statedTotal = receipt.statedGrandTotal;
       b.calculatedTotal = receipt.calculatedGrandTotal;
       b.hasDiscrepancy = receipt.hasDiscrepancy;

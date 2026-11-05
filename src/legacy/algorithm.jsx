@@ -277,79 +277,91 @@ export function calculateItemTaxCharges(subtotalPaise, taxConfig = {}) {
  * Invariant: Sum of participant shares === Total Bill in paise.
  */
 export function calculateShares(items, members, tax = { cgst: 0, sgst: 0, serviceCharge: 0 }, discount = 0, options = {}) {
-  const memberCount = members.length;
-  const foodPaise = new Array(memberCount).fill(0);
-  const memberIndexMap = new Map(members.map((m, idx) => [m.id, idx]));
+  const safeMembers = Array.isArray(members) ? members : [];
+  if (safeMembers.length === 0) return [];
 
-  // 1. Allocate each item's totalPaise equally among assigned members
-  for (const item of items) {
-    const assignedIds = [...new Set(item.assignments || [])].filter(id => memberIndexMap.has(id));
-    if (assignedIds.length > 0) {
-      const itemCost = Math.trunc(Number(item.totalPaise) || 0);
-      const splitShares = allocateLargestRemainder(itemCost, assignedIds.map(() => 1));
-      assignedIds.forEach((id, j) => {
-        const idx = memberIndexMap.get(id);
-        foodPaise[idx] += splitShares[j];
-      });
-    }
-  }
+  const foodPaise = new Array(safeMembers.length).fill(0);
+  const memberIndexMap = new Map(safeMembers.map((m, idx) => [m.id, idx]));
 
-  const totalFoodPaise = foodPaise.reduce((a, b) => a + b, 0);
+  // 1. Allocate each item's total among its assigned participants.
+  for (const item of (Array.isArray(items) ? items : [])) {
+    const assignedIds = [...new Set(item.assignments || [])]
+      .filter(id => memberIndexMap.has(id));
 
-  // 2. Check for percentage rates:
-  const taxObj = { ...(tax || {}), ...(options.taxRates || {}) };
-  const rates = getCombinedTaxRate(taxObj);
-  const combinedRate = rates.combinedRate;
+    if (assignedIds.length === 0) continue;
 
-  // Fixed adjustments:
-  const fixedDiscountPaise = Math.max(0, Math.trunc(Number(discount ?? tax.discountPaise ?? tax.fixedDiscountPaise) || 0));
-  const fixedScPaise = Math.max(0, Math.trunc(Number(tax.fixedServiceChargePaise ?? tax.fixedServiceCharge) || 0));
-  const fixedTaxPaise = Math.max(0, Math.trunc(Number(tax.fixedTaxPaise ?? tax.fixedTax) || 0));
+    const itemCost = Math.max(0, Math.trunc(Number(item.totalPaise) || 0));
+    const itemShares = allocateLargestRemainder(itemCost, assignedIds.map(() => 1));
 
-  // Legacy fallback: if combinedRate is 0, check if legacy cgst/sgst/serviceCharge were passed as fixed amounts
-  if (combinedRate === 0) {
-    const legacySc = Math.max(0, Math.trunc(Number(tax.serviceCharge ?? tax.scPaise) || 0));
-    const legacyCgst = Math.max(0, Math.trunc(Number(tax.cgst ?? tax.cgstPaise) || 0));
-    const legacySgst = Math.max(0, Math.trunc(Number(tax.sgst ?? tax.sgstPaise) || 0));
-    const legacyGst = Math.max(0, Math.trunc(Number(tax.gst ?? tax.gstPaise) || 0));
-    const effectiveLegacyGst = (legacyCgst > 0 || legacySgst > 0) ? (legacyCgst + legacySgst) : legacyGst;
-    const legacyNetAdjustment = (effectiveLegacyGst + legacySc) - fixedDiscountPaise;
-
-    const adjustmentWeights = totalFoodPaise > 0 ? foodPaise : members.map(() => 1);
-    const adjustments = allocateLargestRemainder(legacyNetAdjustment, adjustmentWeights);
-
-    return members.map((m, i) => {
-      const fPaise = foodPaise[i];
-      const adjPaise = adjustments[i] || 0;
-      return {
-        memberId: m.id,
-        name: m.name,
-        foodPaise: fPaise,
-        taxDiscountPaise: adjPaise,
-        sharePaise: Math.max(0, fPaise + adjPaise)
-      };
+    assignedIds.forEach((id, index) => {
+      foodPaise[memberIndexMap.get(id)] += itemShares[index];
     });
   }
 
-  // Pure deterministic percentage calculation using combinedRate
-  const fixedNetAdjustmentPaise = (fixedTaxPaise + fixedScPaise) - fixedDiscountPaise;
-  const fixedAdjustmentWeights = totalFoodPaise > 0 ? foodPaise : members.map(() => 1);
-  const fixedAdjustments = fixedNetAdjustmentPaise !== 0
-    ? allocateLargestRemainder(fixedNetAdjustmentPaise, fixedAdjustmentWeights)
-    : members.map(() => 0);
+  const totalFoodPaise = foodPaise.reduce((sum, amount) => sum + amount, 0);
+  const taxObj = { ...(tax || {}), ...(options.taxRates || {}) };
+  const rates = getCombinedTaxRate(taxObj);
 
-  return members.map((m, i) => {
-    const fPaise = foodPaise[i];
-    const chargeInfo = calculateItemTaxCharges(fPaise, rates);
-    const fixedAdj = fixedAdjustments[i] || 0;
-    const totalAdditionalPaise = chargeInfo.totalChargesPaise + fixedAdj;
-    const sharePaise = Math.max(0, fPaise + totalAdditionalPaise);
+  // Fixed amounts are stored in paise by the bill calculation layer.
+  const fixedDiscountPaise = Math.max(0, Math.trunc(Number(
+    discount ?? taxObj.discountPaise ?? taxObj.fixedDiscountPaise
+  ) || 0));
+  const fixedScPaise = Math.max(0, Math.trunc(Number(
+    taxObj.fixedServiceChargePaise ?? taxObj.fixedServiceCharge
+  ) || 0));
+  const fixedTaxPaise = Math.max(0, Math.trunc(Number(
+    taxObj.fixedTaxPaise ?? taxObj.fixedTax
+  ) || 0));
+  const fixedFeePaise = Math.max(0, Math.trunc(Number(
+    taxObj.fixedFeePaise ?? taxObj.fixedFee
+  ) || 0));
 
+  let percentageChargesPaise = 0;
+  let legacyChargesPaise = 0;
+
+  if (rates.combinedRate > 0) {
+    // Calculate percentage charges once on the complete food subtotal.
+    // This is the same calculation used by breakdown.jsx, avoiding per-person
+    // rounding drift when several participants have different food subtotals.
+    percentageChargesPaise = calculateItemTaxCharges(totalFoodPaise, rates).totalChargesPaise;
+  } else {
+    // Backward compatibility for older bills that stored tax/SC as paise
+    // amounts instead of percentage rates.
+    const legacySc = Math.max(0, Math.trunc(Number(taxObj.serviceCharge ?? taxObj.scPaise) || 0));
+    const legacyCgst = Math.max(0, Math.trunc(Number(taxObj.cgst ?? taxObj.cgstPaise) || 0));
+    const legacySgst = Math.max(0, Math.trunc(Number(taxObj.sgst ?? taxObj.sgstPaise) || 0));
+    const legacyGst = Math.max(0, Math.trunc(Number(taxObj.gst ?? taxObj.gstPaise) || 0));
+    const effectiveLegacyGst = (legacyCgst > 0 || legacySgst > 0)
+      ? legacyCgst + legacySgst
+      : legacyGst;
+    legacyChargesPaise = effectiveLegacyGst + legacySc;
+  }
+
+  // Include every fixed adjustment, including the delivery/extra fee.
+  const totalBeforeFloor = totalFoodPaise
+    + percentageChargesPaise
+    + legacyChargesPaise
+    + fixedTaxPaise
+    + fixedScPaise
+    + fixedFeePaise
+    - fixedDiscountPaise;
+  const grandTotalPaise = Math.max(0, totalBeforeFloor);
+
+  // Allocate the exact final bill total by each participant's food contribution.
+  // Largest-remainder allocation guarantees that the shares sum to the bill
+  // total down to the last paise, including taxes, fees and discounts.
+  const finalShares = allocateLargestRemainder(
+    grandTotalPaise,
+    totalFoodPaise > 0 ? foodPaise : safeMembers.map(() => 1)
+  );
+
+  return safeMembers.map((member, index) => {
+    const sharePaise = finalShares[index] || 0;
     return {
-      memberId: m.id,
-      name: m.name,
-      foodPaise: fPaise,
-      taxDiscountPaise: totalAdditionalPaise,
+      memberId: member.id,
+      name: member.name,
+      foodPaise: foodPaise[index],
+      taxDiscountPaise: sharePaise - foodPaise[index],
       sharePaise
     };
   });
@@ -502,11 +514,27 @@ export function runSelfTests() {
   assert(shares.find(s => s.memberId === 'm2').sharePaise === 5400, 'm2 proportional share');
   assert(shares.reduce((a, x) => a + x.sharePaise, 0) === 16200, 'shares match grand total');
 
-  // 4. Full discount edge case
+  // 4. Fixed fee is included and allocated exactly.
+  const feeShares = calculateShares(
+    [{ id: 'fee-item', totalPaise: 441000, assignments: ['m1', 'm2'] }],
+    mockMembers,
+    { fixedFeePaise: 3370 },
+    0
+  );
+  assert(feeShares.reduce((sum, row) => sum + row.sharePaise, 0) === 444370, 'fixed fee included in participant shares');
+
+  // 5. Four-way equal split reconciles to the exact receipt total.
+  const fourMembers = [1, 2, 3, 4].map(n => ({ id: `p${n}`, name: `Person ${n}` }));
+  const equalItems = [{ id: 'receipt-total', totalPaise: 441000, assignments: fourMembers.map(m => m.id) }];
+  const fourShares = calculateShares(equalItems, fourMembers, {}, 0);
+  assert(fourShares.every(row => row.sharePaise === 110250), '₹4,410 equal split across four people');
+  assert(fourShares.reduce((sum, row) => sum + row.sharePaise, 0) === 441000, 'four-way split matches receipt total');
+
+  // 6. Full discount edge case
   const freeShares = calculateShares([{ id: 'z', totalPaise: 5000, assignments: ['m1'] }], mockMembers, {}, 5000);
   assert(freeShares.find(s => s.memberId === 'm1').sharePaise === 0, 'full discount share');
 
-  // 5. Multiple payers & net balances
+  // 7. Multiple payers & net balances
   const balances = netBalances(
     [
       { memberId: 'a', name: 'A', sharePaise: 600 },
@@ -520,12 +548,12 @@ export function runSelfTests() {
   );
   assert(balances.reduce((a, x) => a + x.balancePaise, 0) === 0, 'multiple payers balance zero sum');
 
-  // 6. Minimum cash flow settlements
+  // 8. Minimum cash flow settlements
   const settlements = minimumCashFlow(balances);
   assert(settlements.length === 2, 'two transfers required');
   assert(settlements.reduce((a, x) => a + x.amountPaise, 0) === 700, 'total settlement equals total debt');
 
-  // 7. Multiple equal debtors
+  // 9. Multiple equal debtors
   const equalDebtors = [
     { id: 'd1', name: 'D1', balancePaise: -100 },
     { id: 'd2', name: 'D2', balancePaise: -100 },
@@ -535,10 +563,10 @@ export function runSelfTests() {
   assert(eqTransfers.length === 2, 'equal debtors transfers');
   assert(eqTransfers.every(t => t.creditor === 'c1' && t.amountPaise === 100), 'equal debtors match');
 
-  // 8. String parsing in toPaise
+  // 10. String parsing in toPaise
   assert(toPaise('₹ 1,250.75') === 125075, 'rupee string parsing');
   assert(toPaise('0') === 0, 'zero string parsing');
   assert(toPaise(null) === 0, 'null parsing');
 
-  return 'All financial calculation and settlement tests passed (8/8).';
+  return 'All financial calculation and settlement tests passed (10/10).';
 }

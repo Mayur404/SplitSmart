@@ -1619,3 +1619,27 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); box-sha
   .page-enter { animation: none; }
   .page-reveal { opacity: 1; transform: none; transition: none; }
 }
+
+/* Fixed adjustments checkbox */
+#toggle-fixed-adjustments {
+    appearance: auto;
+    -webkit-appearance: checkbox;
+    width: 16px !important;
+    height: 16px !important;
+    min-height: 16px !important;
+    flex: 0 0 16px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: initial;
+    background: initial;
+    box-shadow: none;
+    cursor: pointer;
+}
+
+label:has(#toggle-fixed-adjustments) {
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    width: fit-content;
+}

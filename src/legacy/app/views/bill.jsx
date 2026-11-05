@@ -148,8 +148,20 @@ export function renderBill() {
         </div>
 
         <div class="panel">
-          <h2>Adjustments</h2>
-          <p class="panel-intro">Taxes and service charges are calculated as combined percentages on food subtotal.</p>
+          <div class="section-head" style="align-items:center;">
+            <div>
+              <h2>Adjustments</h2>
+              <p class="panel-intro">Taxes and service charges are calculated as combined percentages on food subtotal.</p>
+            </div>
+            <button
+              type="button"
+              class="btn-text quiet"
+              data-action="toggle-gst-mode"
+              style="white-space:nowrap; font-size:12px; padding:7px 10px; border:1px solid var(--line-strong); border-radius:8px; background:rgba(255,255,255,0.03); cursor:pointer;"
+            >
+              ${isCombinedGst ? 'Split GST' : 'Combine GST'}
+            </button>
+          </div>
 
           <div class="field-grid three">
             ${isCombinedGst ? `
@@ -171,16 +183,12 @@ export function renderBill() {
               Service Charge (%)
               <input id="rate-sc" type="number" min="0" step="0.1" value="${scRate || ''}" placeholder="10">
             </label>
-            <div class="total-line" style="display:flex; flex-direction:column; justify-content:center; padding: 6px 0;">
+<div class="total-line" style="display:flex; flex-direction:column; justify-content:center; align-items:center; padding:6px 0;">
               <span class="quiet" style="font-size:12px;">Combined Rate</span>
-              <strong id="combined-rate-display" style="font-size:18px; color:var(--accent, #a3e635);">${combinedRate}%</strong>
+              <strong id="combined-rate-display" style="font-size:22px; color:var(--accent, #a3e635);">
+                ${combinedRate}%
+              </strong>
             </div>
-          </div>
-
-          <div style="margin-top:-6px; margin-bottom:12px;">
-            <button type="button" class="btn-text quiet" data-action="toggle-gst-mode" style="background:none; border:none; padding:0; cursor:pointer; font-size:12px; text-decoration:underline; color:var(--accent, #a3e635);">
-              ${isCombinedGst ? 'Enter separate CGST + SGST instead' : 'Enter single combined GST instead'}
-            </button>
           </div>
 
           <div class="total-line" style="margin-top:6px; margin-bottom:14px; background:rgba(255,255,255,0.03); padding:10px 14px; border-radius:8px;">

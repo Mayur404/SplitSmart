@@ -632,7 +632,7 @@ export function decodeShare(hash) {
     const p = JSON.parse(decompressed);
 
     // Validate schema
-    if (p.version !== 1) {
+    if (![1, 2].includes(p.version)) {
       throw new Error('This shared link was created with an incompatible version.');
     }
     if (typeof p.sessionId !== 'string' || !p.sessionId) {

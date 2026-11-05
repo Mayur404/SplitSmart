@@ -21,7 +21,7 @@ export function renderSettlements() {
     settlements = minimumCashFlow(balances);
   } catch (err) {
     $('#app').innerHTML = `
-      <div class="settlement-page">
+      <div class="settlement-page is-error">
       ${renderHeader('Settlement Plan Error', 'Unable to balance cash flow.')}
       <div class="panel">
         <div class="warning">${esc(err.message)}</div>

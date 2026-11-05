@@ -74,7 +74,9 @@ export function playSettlementBurst() {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
   const page = document.querySelector('#app .settlement-page');
-  if (!page) return;
+  // The settlement renderer also uses this page wrapper for its error state.
+  // Only celebrate after the plan has been computed successfully.
+  if (!page || page.classList.contains('is-error')) return;
   const bounds = page.getBoundingClientRect();
   const originX = bounds.left + bounds.width * 0.5;
   const originY = Math.max(78, bounds.top + 42);

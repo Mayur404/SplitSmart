@@ -5,7 +5,15 @@ export const S = {
   rosters: getRosters(),
   recent: getRecent(),
   settings: getSettings(),
-  view: 'dashboard',
+  view: (() => {
+    const resumableViews = ['dashboard', 'groups', 'bill', 'assign', 'breakdown', 'settlements', 'settings'];
+    try {
+      const savedView = localStorage.getItem('splitsmart:last-view');
+      return resumableViews.includes(savedView) ? savedView : 'dashboard';
+    } catch {
+      return 'dashboard';
+    }
+  })(),
   lastRenderedView: null,
   activeGroup: null,
   outingSession: null,

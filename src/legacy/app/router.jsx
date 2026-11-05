@@ -19,6 +19,9 @@ const INFO_VIEWS = ['terms', 'privacy', 'disclaimer', 'support', 'report'];
 export function go(targetView) {
   const update = () => {
     S.view = targetView;
+    if (['dashboard', 'groups', 'bill', 'assign', 'breakdown', 'settlements', 'settings'].includes(targetView)) {
+      try { localStorage.setItem('splitsmart:last-view', targetView); } catch { /* view persistence is best effort */ }
+    }
     render();
     window.scrollTo({ top: 0, behavior: 'smooth' });
     const app = $('#app');
